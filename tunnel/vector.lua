@@ -32,32 +32,53 @@ function Vector_:__init(...)
    return self
 end
 
--- Append the item
-function Vector_:append(value)
-   local storage = serialize.save(value)
-   return self.vector:write(
-      function (vector)
-         vector:insert(storage:string())
-         return true
-      end)
+-- Insert an item
+function Vector_:insert(...)
+   if select('#', ...) == 1 then
+      local storage = serialize.save(select(1, ...))
+      return self.vector:write(
+         function (vector)
+            vector:insert(storage:string())
+            return true
+         end)
+   else
+      local key, value = select(1, ...), select(2, ...)
+      local storage = serialize.save(value)
+      return self.vector:write(
+         function (vector)
+            vector:insert(key, storage:string())
+            return true
+         end)
+   end
 end
 
--- Append the item asynchronously
-function Vector_:append_async(value)
-   local storage = serialize.save(value)
-   return self.vector:write_async(
-      function (vector)
-         vector:insert(storage:string())
-         return true
-      end)
+-- Insert an item asynchronously
+function Vector_:insertAsync(...)
+   if select('#', ...) == 1 then
+      local storage = serialize.save(select(1, ...))
+      return self.vector:writeAsync(
+         function (vector)
+            vector:insert(storage:string())
+            return true
+         end)
+   else
+      local key, value = select(1, ...), select(2, ...)
+      local storage = serialize.save(value)
+      return self.vector:writeAsync(
+         function (vector)
+            vector:insert(key, storage:string())
+            return true
+         end)
+   end
 end
 
--- Remove the last item
-function Vector_:remove()
+-- Remove an item
+function Vector_:remove(index)
    local storage_string = self.vector:write(
       function (vector)
-         local storage_string = vector[#vector]
-         vector:remove()
+         local index = index or #vector
+         local storage_string = vector[index]
+         vector:remove(index)
          return storage_string
       end)
    if storage_string then
@@ -66,18 +87,59 @@ function Vector_:remove()
    end
 end
 
--- Remove the last item asynchronously
-function Vector_:remove_async()
-   local storage_string = self.vector:write_async(
+-- Remove an item asynchronously
+function Vector_:removeAsync(index)
+   local storage_string = self.vector:writeAsync(
       function (vector)
-         local storage_string = vector[#vector]
-         vector:remove()
+         local index = index or #vector
+         local storage_string = vector[index]
+         vector:remove(index)
          return storage_string
       end)
    if storage_string then
       local storage = torch.CharStorage():string(storage_string)
       return serialize.load(storage)
    end
+end
+
+-- Push the item at the front
+function Vector_:pushFront(value)
+   return self:insert(1, value)
+end
+
+-- Push the item at the front asynchronously
+function Vector_:pushFrontAsync(value)
+   return self:insertAsync(1, value)
+end
+
+-- Pop the item at the front
+function Vector_:popFront()
+   return self:remove(1)
+end
+
+-- Pop the item at the front asynchronously
+function Vector_:popFrontAsync()
+   return self:removeAsync(1)
+end
+
+-- Push the item at the back
+function Vector_:pushBack(value)
+   return self:insert(value)
+end
+
+-- Push the item at the back asynchronously
+function Vector_:pushBackAsync(value)
+   return self:insertAsync(value)
+end
+
+-- Pop the item at the back
+function Vector_:popBack()
+   return self:remove()
+end
+
+-- Pop the item at the back asynchronously
+function Vector_:popBackAsync()
+   return self:removeAsync()
 end
 
 -- Get the item
@@ -93,8 +155,8 @@ function Vector_:get(index)
 end
 
 -- Get the item asynchronously
-function Vector_:get_async(index)
-   local storage_string = self.vector:read_async(
+function Vector_:getAsync(index)
+   local storage_string = self.vector:readAsync(
       function (vector)
          return vector[index]
       end)
@@ -115,7 +177,7 @@ function Vector_:set(index, value)
 end
 
 -- Set the item asynchronously
-function Vector_:set_async(index, value)
+function Vector_:setAsync(index, value)
    local storage = serialize.save(value)
    return self.vector:write(
       function (vector)
@@ -133,8 +195,8 @@ function Vector_:size()
 end
 
 -- Get the size of the vector asynchronously
-function Vector_:size_async()
-   return self.vector:read_async(
+function Vector_:sizeAsync()
+   return self.vector:readAsync(
       function (vector)
          return #vector
       end)
@@ -150,8 +212,8 @@ function Vector_:sort(compare)
 end
 
 -- Sort the vector asynchronously
-function Vector_:sort_async(compare)
-   return self.vector:write_async(
+function Vector_:sortAsync(compare)
+   return self.vector:writeAsync(
       function (vector)
          vector:sort(compare)
          return true
@@ -181,8 +243,8 @@ function Vector_:iterator()
 end
 
 -- Iterate through all the items asynchronously
-function Vector_:iterator_async()
-   local clone = self.vector:read_async(
+function Vector_:iteratorAsync()
+   local clone = self.vector:readAsync(
       function (vector)
          local clone = tds.Vec()
          for index, value in ipairs(vector) do
@@ -211,7 +273,7 @@ function Vector_:tostring()
 end
 
 -- Convert to string asynchronously
-function Vector_:tostring_async()
+function Vector_:tostringAsync()
    return self.vector:read(
       function (vector)
          return tostring(vector)

@@ -137,7 +137,7 @@ function joe:asyncWriterJob()
             ffi.C.sleep(1)
             return true
          end
-         if not atomic_data:write_async(callback) then
+         if not atomic_data:writeAsync(callback) then
             print_mutex:lock()
             print('async_writer', __threadid, i, 'writer blocked')
             print_mutex:unlock()
@@ -163,7 +163,7 @@ function joe:asyncReaderJob()
             ffi.C.sleep(1)
             return true
          end
-         if not atomic_data:read_async(callback) then
+         if not atomic_data:readAsync(callback) then
             print_mutex:lock()
             print('async_reader', __threadid, i, 'reader blocked')
             print_mutex:unlock()

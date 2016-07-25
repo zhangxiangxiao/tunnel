@@ -80,7 +80,7 @@ end
 -- Asynchronous exclusive writer
 -- callback: a callback that writes in data
 -- Return immediately if cannot write, since there are other readers or writers
-function Atomic_:write_async(callback)
+function Atomic_:writeAsync(callback)
    -- Decide whether to write
    local decision  = false
    if self.count[1] == 0 and self.count[2] == 0 then
@@ -109,7 +109,7 @@ end
 -- Asynchronous non-exclusive reader
 -- callback: a callback and reads from data
 -- Return immediately if cannot read, since there are other writers
-function Atomic_:read_async(callback)
+function Atomic_:readAsync(callback)
    -- Decide whether to read
    local decision = false
    if self.count[1] == 0 then
