@@ -33,32 +33,36 @@ function joe:init()
 end
 
 function joe:readwriteTest()
-   -- Create a block 10 threads
-   local block = threads.Threads(10, self:threadInit())
-   block:specific(true)
-
    -- 3 synchronous readers
+   local sync_reader_block = threads.Threads(3, self:threadInit())
+   sync_reader_block:specific(true)
    for i = 1, 3 do
       local job = self:syncReaderJob()
-      block:addjob(i, job)
+      sync_reader_block:addjob(i, job)
    end
 
    -- 2 asynchronous readers
-   for i = 4, 5 do
+   local async_reader_block = threads.Threads(2, self:threadInit())
+   async_reader_block:specific(true)
+   for i = 1, 2 do
       local job = self:asyncReaderJob()
-      block:addjob(i, job)
+      async_reader_block:addjob(i, job)
    end
 
    -- 2 synchronous writers
-   for i = 6, 7 do
+   local sync_writer_block = threads.Threads(2, self:threadInit())
+   sync_writer_block:specific(true)
+   for i = 1, 2 do
       local job = self:syncWriterJob()
-      block:addjob(i, job)
+      sync_writer_block:addjob(i, job)
    end
 
    -- 3 asynchronous writers
-   for i = 8, 10 do
+   local async_writer_block = threads.Threads(3, self:threadInit())
+   async_writer_block:specific(true)
+   for i = 1, 3 do
       local job = self:asyncWriterJob()
-      block:addjob(i, job)
+      async_writer_block:addjob(i, job)
    end
 end
 
