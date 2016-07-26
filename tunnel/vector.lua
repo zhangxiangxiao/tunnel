@@ -46,9 +46,9 @@ function Vector_:insert(...)
       local storage = serialize.save(value)
       inserted = self.vector:write(
          function (vector)
-            -- When index > #vector, tds.Vec.insert will result in segmentation
-            -- fault.
-            if index <= #vector then
+            -- When index > #vector + 1, tds.Vec.insert will result in
+            -- segmentation fault.
+            if index <= #vector + 1 then
                vector:insert(index, storage:string())
                return true
             end
@@ -75,9 +75,9 @@ function Vector_:insertAsync(...)
       local storage = serialize.save(value)
       inserted = self.vector:writeAsync(
          function (vector)
-            -- When index > #vector, tds.Vec.insert will result in segmentation
-            -- fault.
-            if index <= #vector then
+            -- When index > #vector + 1, tds.Vec.insert will result in
+            -- segmentation fault.
+            if index <= #vector + 1 then
                vector:insert(index, storage:string())
                return true
             end
@@ -327,7 +327,9 @@ function Vector_:iterator()
             return index, serialize.load(
                torch.CharStorage():string(clone[index]))
          end
-      end
+      end, true
+   else
+      return function() end, false
    end
 end
 
@@ -349,12 +351,14 @@ function Vector_:iteratorAsync()
             return index, serialize.load(
                torch.CharStorage():string(clone[index]))
          end
-      end
+      end, true
+   else
+      return function() end, false
    end
 end
 
 -- Convert to string
-function Vector_:tostring()
+function Vector_:toString()
    return self.vector:read(
       function (vector)
          return tostring(vector)
@@ -362,8 +366,8 @@ function Vector_:tostring()
 end
 
 -- Convert to string asynchronously
-function Vector_:tostringAsync()
-   return self.vector:read(
+function Vector_:toStringAsync()
+   return self.vector:readAsync(
       function (vector)
          return tostring(vector)
       end)

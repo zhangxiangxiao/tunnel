@@ -77,7 +77,7 @@ function joe:syncWriterJob()
    local print_mutex_id = self.print_mutex:id()
    local atomic_data = self.atomic_data
    return function()
-      local ffi = require 'ffi'
+      local ffi = require('ffi')
       ffi.cdef('unsigned int sleep(unsigned int seconds);')
       local threads = require('threads')
       local print_mutex = threads.Mutex(print_mutex_id)
@@ -103,7 +103,7 @@ function joe:syncReaderJob()
    local print_mutex_id = self.print_mutex:id()
    local atomic_data = self.atomic_data
    return function()
-      local ffi = require 'ffi'
+      local ffi = require('ffi')
       ffi.cdef('unsigned int sleep(unsigned int seconds);')
       local threads = require('threads')
       local print_mutex = threads.Mutex(print_mutex_id)
@@ -128,8 +128,8 @@ function joe:asyncWriterJob()
    local print_mutex_id = self.print_mutex:id()
    local atomic_data = self.atomic_data
    return function()
-      local ffi = require "ffi"
-      ffi.cdef "unsigned int sleep(unsigned int seconds);"
+      local ffi = require('ffi')
+      ffi.cdef('unsigned int sleep(unsigned int seconds);')
       local threads = require('threads')
       local print_mutex = threads.Mutex(print_mutex_id)
       for i = 1, 40 do
@@ -155,7 +155,7 @@ function joe:asyncReaderJob()
    local print_mutex_id = self.print_mutex:id()
    local atomic_data = self.atomic_data
    return function()
-      local ffi = require 'ffi'
+      local ffi = require('ffi')
       ffi.cdef('unsigned int sleep(unsigned int seconds);')
       local threads = require('threads')
       local print_mutex = threads.Mutex(print_mutex_id)
