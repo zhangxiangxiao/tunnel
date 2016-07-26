@@ -17,73 +17,91 @@ tunnel = tunnel or {}
 local Vector_ = torch.class('tunnel.Vector')
 
 -- Constructor
--- The parameters can be a list of items, in a table or not.
-function Vector_:__init(...)
+-- The parameter is just a size hint. The actual size may go beyond it.
+-- Size hint is only useful in push and pop functions, where whether to wait for
+-- pushing or popping is depend on the current size of the vector.
+function Vector_:__init(size_hint)
    self.vector = Atomic(tds.Vec())
-   if select('#', ...) == 1 and type(select(1, ...)) == 'table' then
-      for index, value in ipairs(select(1, ...)) do
-         self:append(value)
-      end
-   elseif select('#', ...) > 0 then
-      for index, value in ipairs({...}) do
-         self:append(value)
-      end
-   end
+   self.size_hint = size_hint or math.huge
+
+   -- Mutex and conditions for push and pop functions based on size hint
+   self.mutex = threads.Mutex()
+   self.inserted_condition = threads.Condition()
+   self.removed_condition = threads.Condition()
    return self
 end
 
 -- Insert an item
 function Vector_:insert(...)
+   local status, inserted
    if select('#', ...) == 1 then
       local storage = serialize.save(select(1, ...))
-      return self.vector:write(
+      inserted = self.vector:write(
          function (vector)
             vector:insert(storage:string())
             return true
          end)
    else
-      local key, value = select(1, ...), select(2, ...)
+      local index, value = select(1, ...), select(2, ...)
       local storage = serialize.save(value)
-      return self.vector:write(
+      inserted = self.vector:write(
          function (vector)
-            vector:insert(key, storage:string())
-            return true
+            -- When index > #vector, tds.Vec.insert will result in segmentation
+            -- fault.
+            if index <= #vector then
+               vector:insert(index, storage:string())
+               return true
+            end
          end)
    end
+   if inserted == true then
+      self.inserted_condition:signal()
+   end
+   return inserted
 end
 
 -- Insert an item asynchronously
 function Vector_:insertAsync(...)
+   local inserted = nil
    if select('#', ...) == 1 then
       local storage = serialize.save(select(1, ...))
-      return self.vector:writeAsync(
+      inserted = self.vector:writeAsync(
          function (vector)
             vector:insert(storage:string())
             return true
          end)
    else
-      local key, value = select(1, ...), select(2, ...)
+      local index, value = select(1, ...), select(2, ...)
       local storage = serialize.save(value)
-      return self.vector:writeAsync(
+      inserted = self.vector:writeAsync(
          function (vector)
-            vector:insert(key, storage:string())
-            return true
+            -- When index > #vector, tds.Vec.insert will result in segmentation
+            -- fault.
+            if index <= #vector then
+               vector:insert(index, storage:string())
+               return true
+            end
          end)
    end
+   if inserted == true then
+      self.inserted_condition:signal()
+   end
+   return inserted
 end
 
 -- Remove an item
 function Vector_:remove(index)
    local storage_string = self.vector:write(
       function (vector)
-         local index = index or #vector
-         local storage_string = vector[index]
-         vector:remove(index)
-         return storage_string
+            local index = index or #vector
+            local storage_string = vector[index]
+            vector:remove(index)
+            return storage_string
       end)
    if storage_string then
       local storage = torch.CharStorage():string(storage_string)
-      return serialize.load(storage)
+      self.removed_condition:signal()
+      return serialize.load(storage), true
    end
 end
 
@@ -98,48 +116,119 @@ function Vector_:removeAsync(index)
       end)
    if storage_string then
       local storage = torch.CharStorage():string(storage_string)
-      return serialize.load(storage)
+      self.removed_condition:signal()
+      return serialize.load(storage), true
    end
 end
 
 -- Push the item at the front
+-- The function will wait untill the vector is smaller than self.size_hint.
+-- Note that there is no guarantee that after insertion the vector size will
+-- be smaller than or equal to self.size_hint.
 function Vector_:pushFront(value)
+   while self:size() >= self.size_hint do
+      self.mutex:lock()
+      self.removed_condition:wait(self.mutex)
+      self.mutex:unlock()
+   end
    return self:insert(1, value)
 end
 
 -- Push the item at the front asynchronously
+-- If vector is larger than self.size_hint or there are other threads accessing
+-- it, return immediately.
 function Vector_:pushFrontAsync(value)
-   return self:insertAsync(1, value)
+   local size = self:sizeAsync()
+   if size and size < self.size_hint then
+      return self:insertAsync(1, value)
+   end
 end
 
 -- Pop the item at the front
+-- The function will wait untill the vector has more than one item.
 function Vector_:popFront()
-   return self:remove(1)
+   while self:size() < 1 do
+      self.mutex:lock()
+      self.inserted_condition:wait(self.mutex)
+      self.mutex:unlock()
+   end
+   local value, removed = self:remove(1)
+
+   while removed ~= true do
+      while self:size() < 1 do
+         self.mutex:lock()
+         self.inserted_condition:wait(self.mutex)
+         self.mutex:unlock()
+      end
+      value, removed = self:remove(1)
+   end
+
+   return value, removed
 end
 
 -- Pop the item at the front asynchronously
+-- If vector is smaller than 1 or there are other threads accessing it, return
+-- immediately
 function Vector_:popFrontAsync()
-   return self:removeAsync(1)
+   local size = self:sizeAsync()
+   if size and size > 0 then
+      return self:removeAsync(1)
+   end
 end
 
 -- Push the item at the back
+-- The function will wait untill the vector is smaller than self.size_hint.
+-- Note that there is no guarantee that after insertion the vector size will
+-- be smaller than or equal to self.size_hint.
 function Vector_:pushBack(value)
+   while self:size() >= self.size_hint do
+      self.mutex:lock()
+      self.removed_condition:wait(self.mutex)
+      self.mutex:unlock()
+   end
    return self:insert(value)
 end
 
 -- Push the item at the back asynchronously
+-- If vector is larger than self.size_hint or there are other threads accessing
+-- it, return immediately.
 function Vector_:pushBackAsync(value)
-   return self:insertAsync(value)
+   local size = self:sizeAsync()
+   if size and size < self.size_hint then
+      return self:insertAsync(value)
+   end
 end
 
 -- Pop the item at the back
+-- The function will wait untill the vector has more than one item.
 function Vector_:popBack()
-   return self:remove()
+   while self:size() < 1 do
+      self.mutex:lock()
+      self.inserted_condition:wait(self.mutex)
+      self.mutex:unlock()
+   end
+   local value, removed = self:remove()
+
+   while removed ~= true do
+      while self:size() < 1 do
+         self.mutex:lock()
+         self.inserted_condition:wait(self.mutex)
+         self.mutex:unlock()
+      end
+      value, removed = self:remove()
+   end
+
+   return value, removed
 end
 
 -- Pop the item at the back asynchronously
+-- If vector is smaller than 1 or there are other threads accessing it, return
+-- immediately
 function Vector_:popBackAsync()
-   return self:removeAsync()
+   local size = self:sizeAsync()
+   if size and size > 0 then
+      return self:removeAsync()
+   end
 end
 
 -- Get the item
@@ -278,6 +367,24 @@ function Vector_:tostringAsync()
       function (vector)
          return tostring(vector)
       end)
+end
+
+-- Serialization of this object
+function Vector_:__write(f)
+   f:writeObject(self.vector)
+   f:writeObject(self.size_hint)
+   f:writeObject(self.mutex:id())
+   f:writeObject(self.inserted_condition:id())
+   f:writeObject(self.removed_condition:id())
+end
+
+-- Deserialization of this object
+function Vector_:__read(f)
+   self.vector = f:readObject()
+   self.size_hint = f:readObject()
+   self.mutex = threads.Mutex(f:readObject())
+   self.inserted_condition = threads.Condition(f:readObject())
+   self.removed_condition = threads.Condition(f:readObject())
 end
 
 -- Return the class, not the metatable

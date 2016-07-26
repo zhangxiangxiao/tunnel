@@ -42,13 +42,17 @@ function Atomic_:write(callback)
    self.mutex:unlock()
 
    -- Execute the write
-   local result = self:pack(callback(self.data))
+   local status, result = self:pack(pcall(callback, self.data))
 
    -- Release the write
    self.mutex:lock()
    self.count[1] = self.count[1] - 1
    self.mutex:unlock()
    self.wrote_condition:signal()
+
+   if status == false then
+      error(unpack(result))
+   end
 
    return unpack(result)
 end
@@ -66,13 +70,17 @@ function Atomic_:read(callback)
    self.mutex:unlock()
 
    -- Execute the read
-   local result = self:pack(callback(self.data))
+   local status, result = self:pack(pcall(callback, self.data))
    
    -- Release the read
    self.mutex:lock()
    self.count[2] = self.count[2] - 1
    self.mutex:unlock()
    self.read_condition:signal()
+
+   if status == false then
+      error(unpack(result))
+   end
 
    return unpack(result)
 end
@@ -94,13 +102,17 @@ function Atomic_:writeAsync(callback)
 
    if decision == true then
       -- Execute write
-      local result = self:pack(callback(self.data))
+      local status, result = self:pack(pcall(callback, self.data))
 
       -- Release the write
       self.mutex:lock()
       self.count[1] = self.count[1] - 1
       self.mutex:unlock()
       self.wrote_condition:signal()
+
+      if status == false then
+         error(unpack(result))
+      end
 
       return unpack(result)
    end
@@ -123,7 +135,7 @@ function Atomic_:readAsync(callback)
 
    if decision == true then
       -- Execute the read
-      local result = self:pack(callback(self.data))
+      local status, result = self:pack(pcall(callback, self.data))
 
       -- Release the read
       self.mutex:lock()
@@ -131,13 +143,17 @@ function Atomic_:readAsync(callback)
       self.mutex:unlock()
       self.read_condition:signal()
 
+      if status == false then
+         error(unpack(result))
+      end
+
       return unpack(result)
    end
 end
 
 -- Pack returned results into a table
-function Atomic_:pack(...)
-   return {...}
+function Atomic_:pack(status, ...)
+   return status, {...}
 end
 
 -- Serialization of this object
