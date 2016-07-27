@@ -233,25 +233,29 @@ end
 
 -- Get the item
 function Vector_:get(index)
-   local storage_string = self.vector:read(
+   local storage_string, status = self.vector:read(
       function (vector)
-         return vector[index]
+         return vector[index], true
       end)
    if storage_string then
       local storage = torch.CharStorage():string(storage_string)
-      return serialize.load(storage)
+      return serialize.load(storage), status
+   else
+      return nil, status
    end
 end
 
 -- Get the item asynchronously
 function Vector_:getAsync(index)
-   local storage_string = self.vector:readAsync(
+   local storage_string, status = self.vector:readAsync(
       function (vector)
-         return vector[index]
+         return vector[index], true
       end)
    if storage_string then
       local storage = torch.CharStorage():string(storage_string)
-      return serialize.load(storage)
+      return serialize.load(storage), status
+   else
+      return nil, status
    end
 end
 
@@ -260,6 +264,12 @@ function Vector_:set(index, value)
    local storage = serialize.save(value)
    return self.vector:write(
       function (vector)
+         if index > #vector then
+            local nil_string = serialize.save(nil):string()
+            for i = #vector + 1, index do
+               vector[i] = nil_string
+            end
+         end
          vector[index] = storage:string()
          return true
       end)
@@ -270,6 +280,12 @@ function Vector_:setAsync(index, value)
    local storage = serialize.save(value)
    return self.vector:write(
       function (vector)
+         if index > #vector then
+            local nil_string = serialize.save(nil):string()
+            for i = #vector + 1, index do
+               vector[i] = nil_string
+            end
+         end
          vector[index] = storage:string()
          return true
       end)
@@ -295,7 +311,11 @@ end
 function Vector_:sort(compare)
    return self.vector:write(
       function (vector)
-         vector:sort(compare)
+         vector:sort(
+            function (a, b)
+               return compare(serialize.load(torch.CharStorage():string(a)),
+                              serialize.load(torch.CharStorage():string(b)))
+            end)
          return true
       end)
 end
@@ -304,7 +324,11 @@ end
 function Vector_:sortAsync(compare)
    return self.vector:writeAsync(
       function (vector)
-         vector:sort(compare)
+         vector:sort(
+            function (a, b)
+               return compare(serialize.load(torch.CharStorage():string(a)),
+                              serialize.load(torch.CharStorage():string(b)))
+            end)
          return true
       end)
 end
