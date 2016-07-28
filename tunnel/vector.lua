@@ -397,6 +397,39 @@ function Vector_:toStringAsync()
       end)
 end
 
+-- The index operator
+function Vector_:__index(index)
+   if type(index) == 'number' then
+      return self:get(index)
+   else
+      local method = rawget(Vector_, index)
+      if method then
+         return method
+      else
+         error('Invalid key (number) or method name')
+      end
+   end
+end
+
+-- The new index operator
+function Vector_:__newindex(index, value)
+   if type(index) == 'number' then
+      self:set(index, value)
+   else
+      rawset(self, index, value)
+   end
+end
+
+-- Array iterator operator
+function Vector_:__ipairs()
+   return self:iterator()
+end
+
+-- Table iterator operator
+function Vector_:__pairs()
+   return self:__ipairs()
+end
+
 -- Serialization of this object
 function Vector_:__write(f)
    f:writeObject(self.vector)
