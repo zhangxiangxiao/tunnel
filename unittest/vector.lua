@@ -289,6 +289,16 @@ function joe:getSetTest()
       local job = self:asyncIteratorJob()
       async_iterator_block:addjob(i, job)
    end
+
+   sync_insert_block:terminate()
+   sync_get_block:terminate()
+   sync_set_block:terminate()
+   async_get_block:terminate()
+   async_set_block:terminate()
+   sync_sort_block:terminate()
+   async_sort_block:terminate()
+   sync_iterator_block:terminate()
+   async_iterator_block:terminate()
 end
 
 function joe:threadInit()
@@ -430,7 +440,8 @@ function joe:syncIteratorJob()
       ffi.cdef('unsigned int sleep(unsigned int seconds);')
       local print_mutex = threads.Mutex(print_mutex_id)
       for i = 1, 30 do
-         local iterator, status = vector:iterator()
+         local status = true
+         local iterator = pairs(vector)
          if status == true then
             print_mutex:lock()
             io.write('sync_iterator', '\t',  __threadid, '\t', i, '\t{')
@@ -784,7 +795,8 @@ function joe:syncGetJob()
       local print_mutex = threads.Mutex(print_mutex_id)
       for i = 1, 30 do
          local index = math.random(10)
-         local value, status = vector:get(index)
+         local value = vector[index]
+         local status = true
          if status == true then
             print_mutex:lock()
             print('sync_get', __threadid, i, index, value)
@@ -814,7 +826,8 @@ function joe:syncSetJob()
       for i = 1, 60 do
          local index = math.random(10)
          local value = 50000 + __threadid * 1000 + i
-         local status = vector:set(index, value)
+         vector[index] = value
+         local status = true
          if status == true then
             print_mutex:lock()
             print('sync_set', __threadid, i, index, value)

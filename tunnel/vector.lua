@@ -414,7 +414,7 @@ end
 -- The new index operator
 function Vector_:__newindex(index, value)
    if type(index) == 'number' then
-      self:set(index, value)
+      return self:set(index, value)
    else
       rawset(self, index, value)
    end
