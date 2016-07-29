@@ -508,7 +508,7 @@ function joe:syncToStringJob()
       ffi.cdef('unsigned int sleep(unsigned int seconds);')
       local print_mutex = threads.Mutex(print_mutex_id)
       for i = 1, 12 do
-         local vector_string = vector:toString()
+         local vector_string = tostring(vector)
          if vector_string ~= nil then
             print_mutex:lock()
             print('sync_tostring', __threadid, i,

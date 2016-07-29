@@ -3,7 +3,6 @@ Multi-threaded vector
 Copyright 2016 Xiang Zhang
 --]]
 
-local ffi = require('ffi')
 local serialize = require('threads.sharedserialize')
 local tds = require('tds')
 local threads = require('threads')
@@ -397,6 +396,14 @@ function Vector_:toStringAsync()
       end)
 end
 
+-- Free the resources allocated by vector
+function Vector_:free()
+   self.mutex:free()
+   self.inserted_condition:free()
+   self.removed_condition:free()
+   self.vector:free()
+end
+
 -- The index operator
 function Vector_:__index(index)
    if type(index) == 'number' then
@@ -446,6 +453,11 @@ function Vector_:__read(f)
    self.mutex = threads.Mutex(f:readObject())
    self.inserted_condition = threads.Condition(f:readObject())
    self.removed_condition = threads.Condition(f:readObject())
+end
+
+-- To string
+function Vector_:__tostring()
+   return self:toString()
 end
 
 -- Return the class, not the metatable

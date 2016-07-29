@@ -1,5 +1,5 @@
 --[[
-Multi-threaded Reader and Writer Program
+Multi-threaded reader-writer wrapper
 Copyright 2016 Xiang Zhang
 --]]
 
@@ -154,6 +154,13 @@ end
 -- Pack returned results into a table
 function Atomic_:pack(status, ...)
    return status, {...}
+end
+
+-- Free allocated resources
+function Atomic_:free()
+   self.mutex:free()
+   self.wrote_condition:free()
+   self.read_condition:free()
 end
 
 -- Serialization of this object
