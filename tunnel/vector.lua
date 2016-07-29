@@ -27,6 +27,13 @@ function Vector_:__init(size_hint)
    self.mutex = threads.Mutex()
    self.inserted_condition = threads.Condition()
    self.removed_condition = threads.Condition()
+
+   -- Lua 5.1 / LuaJIT garbage collection
+   if newproxy then
+      self.proxy = newproxy(true)
+      getmetatable(self.proxy).__gc = function () self:__gc() end
+   end
+
    return self
 end
 
@@ -401,7 +408,6 @@ function Vector_:free()
    self.mutex:free()
    self.inserted_condition:free()
    self.removed_condition:free()
-   self.vector:free()
 end
 
 -- The index operator
@@ -437,6 +443,11 @@ function Vector_:__pairs()
    return self:__ipairs()
 end
 
+-- This works for Lua 5.2. For Lua 5.1 / LuaJIT we depend on self.proxy.
+function Vector_:__gc()
+   self:free()
+end
+
 -- Serialization of this object
 function Vector_:__write(f)
    f:writeObject(self.vector)
@@ -453,6 +464,12 @@ function Vector_:__read(f)
    self.mutex = threads.Mutex(f:readObject())
    self.inserted_condition = threads.Condition(f:readObject())
    self.removed_condition = threads.Condition(f:readObject())
+
+   -- Lua 5.1 / LuaJIT garbage collection
+   if newproxy then
+      self.proxy = newproxy(true)
+      getmetatable(self.proxy).__gc = function () self:__gc() end
+   end
 end
 
 -- To string

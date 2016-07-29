@@ -22,6 +22,14 @@ function Atomic_:__init(data)
    self.mutex = threads.Mutex()
    self.wrote_condition = threads.Condition()
    self.read_condition = threads.Condition()
+
+   -- Lua 5.1 / LuaJIT garbage collection
+   if newproxy then
+      self.proxy = newproxy(true)
+      getmetatable(self.proxy).__gc = function () self:__gc() end
+   end
+
+   return self
 end
 
 -- Synchronous exclusive writer
@@ -163,6 +171,11 @@ function Atomic_:free()
    self.read_condition:free()
 end
 
+-- This works for Lua 5.2, for Lua 5.1 / LuaJIT we depend on self.proxy
+function Atomic_:__gc()
+   self:free()
+end
+
 -- Serialization of this object
 function Atomic_:__write(f)
    local data = serialize.save(self.data)
@@ -187,6 +200,12 @@ function Atomic_:__read(f)
    self.mutex = threads.Mutex(f:readObject())
    self.wrote_condition = threads.Condition(f:readObject())
    self.read_condition = threads.Condition(f:readObject())
+
+   -- Lua 5.1 / LuaJIT garbage collection
+   if newproxy then
+      self.proxy = newproxy(true)
+      getmetatable(self.proxy).__gc = function () self:__gc() end
+   end
 end
 
 -- Return the class, not the metatable Atomic_

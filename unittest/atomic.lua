@@ -68,6 +68,11 @@ function joe:readwriteTest()
       local job = self:asyncWriterJob()
       async_writer_block:addjob(i, job)
    end
+
+   sync_reader_block:terminate()
+   async_reader_block:terminate()
+   sync_writer_block:terminate()
+   async_writer_block:terminate()
 end
 
 function joe:threadInit()
