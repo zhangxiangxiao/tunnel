@@ -8,18 +8,18 @@ Machine learning systems are intrinsically data-driven. There is data everywhere
 
 ## Installation
 
-The following prerequisites must be installed:
+You can install tunnel using luarocks
+```bash
+$ git clone git@github.com:zhangxiangxiao/tunnel.git
+$ cd tunnel
+$ luarocks make rockspec/tunnel-scm-1.rockspec
+```
+
+Tunnel requires the following prerequisites.
 * [Torch 7](https://github.com/torch/torch7)
 * [threads](https://github.com/torch/threads)
 * [tds](https://github.com/torch/tds)
-
-Then, you can just copy the `tunnel` directory to your Lua installation directory, such as `/usr/share/lua/5.1/tunnel`.
-```bash
-$ git clone git@github.com:zhangxiangxiao/tunnel.git
-$ sudo cp -r tunnel/tunnel /usr/share/lua/5.1/
-```
-
-A luarocks specification will be added later when this repository is tested further.
+Luarocks should be able to install them automatically.
 
 ## Example: Consumer-Producer Problem
 
