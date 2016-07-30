@@ -415,11 +415,11 @@ function Vector_:__index(index)
    if type(index) == 'number' then
       return self:get(index)
    else
-      local method = rawget(Vector_, index)
+      local method = Vector_[index]
       if method then
          return method
       else
-         error('Invalid key (number) or method name')
+         error('Invalid index (number) or method name')
       end
    end
 end
@@ -448,6 +448,11 @@ function Vector_:__gc()
    self:free()
 end
 
+-- To string
+function Vector_:__tostring()
+   return self:toString()
+end
+
 -- Serialization of this object
 function Vector_:__write(f)
    f:writeObject(self.vector)
@@ -470,11 +475,6 @@ function Vector_:__read(f)
       self.proxy = newproxy(true)
       getmetatable(self.proxy).__gc = function () self:__gc() end
    end
-end
-
--- To string
-function Vector_:__tostring()
-   return self:toString()
 end
 
 -- Return the class, not the metatable
