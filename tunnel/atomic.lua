@@ -3,7 +3,6 @@ Multi-threaded reader-writer wrapper
 Copyright 2016 Xiang Zhang
 --]]
 
-local ffi = require('ffi')
 local serialize = require('threads.sharedserialize')
 local threads = require('threads')
 local torch = require('torch')
