@@ -110,3 +110,8 @@ When a thread in the producer block runs the `produce` function, it obtained the
 The consumer thread simply pop from `vector` by calling `popFront()` and print information in the same way using the same `atomic` guard. It then pretends that it takes 1 second to consume the product before going to the next iteration. The call `vector:popFront()` is also synchronized, in the sense that when `vector` is empty it will wait untill a product is available then return.
 
 The example simply demonstrates usefulness of synchronized data structures and data-driven programming.
+
+## Future Plans
+
+* Implement more synchronized data structures
+* Use [Redis](http://redis.io/) for across-machine (cluster) distributed computing
