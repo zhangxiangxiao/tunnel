@@ -22,22 +22,38 @@ end
 
 -- Set an item
 function Hash_:set(key, value)
-   local storage = serialize.save(value)
-   return self.hash:write(
-      function (hash)
-         hash[key] = storage:string()
-         return true
-      end)
+   if value ~= nil then
+      local storage = serialize.save(value)
+      return self.hash:write(
+         function (hash)
+            hash[key] = storage:string()
+            return true
+         end)
+   else
+      return self.hash:write(
+         function (hash)
+            hash[key] = nil
+            return true
+         end)
+   end
 end
 
 -- Set an item asynchronously
 function Hash_:setAsync(key, value)
-   local storage = serialize.save(value)
-   return self.hash:writeAsync(
-      function (hash)
-         hash[key] = storage:string()
-         return true
-      end)
+   if value ~= nil then
+      local storage = serialize.save(value)
+      return self.hash:write(
+         function (hash)
+            hash[key] = storage:string()
+            return true
+         end)
+   else
+      return self.hash:write(
+         function (hash)
+            hash[key] = nil
+            return true
+         end)
+   end
 end
 
 -- Get an item
@@ -56,7 +72,7 @@ end
 
 -- Get an item asynchronously
 function Hash_:getAsync(key)
-   local storage_string, status = self.hash:read(
+   local storage_string, status = self.hash:readAsync(
       function (hash)
          return hash[key], true
       end)
@@ -97,13 +113,18 @@ function Hash_:iterator()
    if clone then
       local iterator = pairs(clone)
       return function ()
-         return iterator()
+         local key, value = iterator()
+         if value then
+            local storage = torch.CharStorage():string(value)
+            return key, serialize.load(storage)
+         end
+         return key, value
       end, true
    end
 end
 
 -- Iterate through all the items asynchronously
-function Hash_:iterator()
+function Hash_:iteratorAsync()
    local clone = self.hash:readAsync(
       function (hash)
          local clone = tds.Hash()
@@ -115,7 +136,12 @@ function Hash_:iterator()
    if clone then
       local iterator = pairs(clone)
       return function ()
-         return iterator()
+         local key, value = iterator()
+         if value then
+            local storage = torch.CharStorage():string(value)
+            return key, serialize.load(storage)
+         end
+         return key, value
       end, true
    end
 end
