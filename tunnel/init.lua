@@ -8,6 +8,7 @@ tunnel = tunnel or {}
 require('tunnel.block')
 
 require('tunnel.atomic')
+require('tunnel.printer')
 require('tunnel.vector')
 
 return tunnel

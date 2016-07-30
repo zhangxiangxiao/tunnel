@@ -23,10 +23,6 @@ function joe.main()
          func(joe)
       end
    end
-   if joe.free then
-      print('Freeing testing environment')
-      joe:free()
-   end
 end
 
 function joe:init()
