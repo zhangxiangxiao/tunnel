@@ -1,6 +1,6 @@
 # Tunnel
 
-Tunnel is a data driven framework for distributed computing in Torch 7. It consists of two part -- a set of synchronous data structures, and a manager for threads. Parallelization on a single machine is taken care of by multi-threading using the [threads package](https://github.com/torch/threads). For across-machine prallelization, the data structure server [Redis](http://redis.io) is used. Tunnel abstracts single- and multi- machine data structures away using similar interfaces, enabling programming of distributed machine learning algorithms without a single line for synchronization.
+Tunnel is a data driven framework for distributed computing in Torch 7.
 
 ## Why data driven?
 

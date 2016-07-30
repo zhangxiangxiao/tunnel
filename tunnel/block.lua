@@ -20,42 +20,47 @@ function Block_:__init(size, callback)
    self.size = size or 1
 
    local init_job = self:initJob(callback)
-   self.block = threads.Threads(self.size)
+   self.block = threads.Threads(self.size, init_job)
    self.block:specific(true)
 
    self.data = {}
-   self.result = Vector()
-   self.status = Vector()
+   self.result = {}
+   self.status = {}
+   self.count = 0
 end
 
 function Block_:add(...)
    local data_objects = {...}
-   for data in ipairs(data_objects) do
+   for _, data in ipairs(data_objects) do
       self.data[#self.data + 1] = data
    end
    return self
 end
 
 function Block_:run(callback)
+   self.count = self.count + 1
+   self.result[self.count] = Vector()
+   self.status[self.count] = Vector()
    for i = 1, self.size do
       local job = self:runJob(i, callback)
       self.block:addjob(i, job)
    end
+   return self.count
+end
+
+function Block_:getResult(count)
+   local count = count or self.count
+   return self.result[count], self.status[count]
 end
 
 function Block_:synchronize()
    self.block:synchronize()
-   return self.result, self.status
+   return self:getResult()
 end
 
 function Block_:terminate()
    self.block:terminate()
-   return self.result, self.status
-end
-
-function Block_:free()
-   self.result:free()
-   self.status:free()
+   return self:getResult()
 end
 
 function Block_:initJob(callback)
@@ -69,21 +74,14 @@ end
 
 function Block_:runJob(index, callback)
    local data = self.data
-   local result = self.result
-   local status = self.status
+   local result = self.result[self.count]
+   local status = self.status[self.count]
    return function ()
       -- Execute the callback
       local pack = function (status, ...)
          return status, {...}
       end
-      status[index], result[index] = pack(pcall(callback(unpack(data))))
-
-      -- Decrease the count on mutexes and conditions.
-      for _, d in ipairs(data) do
-         d:free()
-      end
-      status:free()
-      result:free()
+      status[index], result[index] = pack(pcall(callback, unpack(data)))
    end
 end
 
