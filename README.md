@@ -23,7 +23,7 @@ A luarocks specification will be added later when this repository is tested furt
 
 ## Example: Consumer-Producer Problem
 
-Here is an example that demonstrates how to write a consumer-producer problem solver without a single line of synchronization code using tunnel.
+Here is an example that demonstrates how to write a [producer-consumer problem](https://en.wikipedia.org/wiki/Producer%E2%80%93consumer_problem) solver without a single line of synchronization code using tunnel.
 ```lua
 local tunnel = require('tunnel')
 
@@ -66,10 +66,6 @@ local function main()
    -- Execute the producer and consumer threads
    producer_block:run(produce)
    consumer_block:run(consume)
-
-   -- Wait for the threads to end and exit
-   producer_block:synchronize()
-   consumer_block:synchronize()
 end
 
 -- Call the main function
@@ -78,7 +74,7 @@ return main()
 
 One possible output:
 ```
-$ th consumer_producer.lua
+$ th producer_consumer.lua
 produce 1       1       1001
 produce 1       2       1002
 produce 1       3       1003
