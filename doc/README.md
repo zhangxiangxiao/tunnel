@@ -921,7 +921,7 @@ Note that becuase the values stored in `hash` are serialized, the string convers
 <a name="tunnel.hash.summary"></a>
 ### Summary ###
 
-The following is a table summarizing all the functions in `tunnel.Vector` and their compatibility. Note that all read-only operations are compatible with each other, which means that multiple threads can do multiple read-only operations at the same time.
+The following is a table summarizing all the functions in `tunnel.Hash` and their compatibility. Note that all read-only operations are compatible with each other, which means that multiple threads can do multiple read-only operations at the same time.
 
 |                  |     Type     | Other Read-only | Other Modification | Incompatibility Behavior |
 |------------------|:------------:|:---------------:|:------------------:|--------------------------|
