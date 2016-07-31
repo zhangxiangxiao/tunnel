@@ -419,6 +419,7 @@ An asynchronous read operation in which `callback` is called by passing `atomic.
 
 `atomic:readAsync()` allows multiple readers (synchronous or asynchronous) to access data, so one must ensure that `callback` should do read-only operations. If some write operation is executing when it attempts to access data, the asynchronous reader returns immediately without executing `callback`. Therefore, an asynchronous read operation may fail.
 
+<a name="tunnel.atomic.summary"></a>
 ### Summary ###
 
 The following table summarizes the compatibility and behavior of these four access functions.
@@ -496,7 +497,7 @@ printer:print(...)
 <a name="tunnel.vector"></a>
 ## `tunnel.Vector` ##
 
-`tunnel.Vector` is class that can represent an array, a queue or a stack. It has synchronous methods that wait for space or data availability, and asynchronous methods that returns immediately if no space or data available.
+`tunnel.Vector` is a class that can represent an array, a queue or a stack. It has synchronous methods that wait for space or data availability, and asynchronous methods that returns immediately if no space or data available.
 
 The underlying storage is based on the `tds.Vec` class, with the additional mechanism of enforced share-serialization on values (not on indices since they are just numbers). Such enforcement has the following two advantages
 
@@ -511,7 +512,7 @@ To create a vector, simply call
 vector = tunnel.Vector(size_hint)
 ```
 
-The `size_hint` is a parameter used by `push*` to determine whether to add values to the vector any more.
+The `size_hint` is a parameter used by `push*` to determine whether to add values to the vector any more. It defaults to `math.huge`.
 
 The following is an example of using `tunnel.Vector` to solve producer-consumer problem by using it as a product queue.
 
@@ -750,7 +751,7 @@ This method is asynchronous iterator, a read-only operation. It gets a snapshot 
 If there are other modification operations, the asynchronous iterator will return immediately. Therefore, the iterator obtain may not be attempted.
 
 <a name="tunnel.vector.tostring"></a>
-### `str = vector:toString()` or `tostring(vector)` ###
+### `str = vector:toString()` or `str = tostring(vector)` ###
 
 This method is synchronous string conversion, a read-only operation. It returns the string representation of the underlying `tds.Vec`. If `str ~= nil`, the string conversion is successful.
 
@@ -767,6 +768,7 @@ If there are other modification operations, the asynchronous string conversion w
 
 Note that becuase the values stored in `vector` are serialized, the string conversion result may not be readable.
 
+<a name="tunnel.vector.summary"></a>
 ### Summary ###
 
 The following is a table summarizing all the functions in `tunnel.Vector` and their compatibility. Note that all read-only operations are compatible with each other, which means that multiple threads can do multiple read-only operations at the same time.
@@ -800,3 +802,136 @@ The following is a table summarizing all the functions in `tunnel.Vector` and th
 
 <a name="tunnel.hash"></a>
 ## `tunnel.Hash` ##
+
+`tunnel.Hash` is a class that can represent a hash table. This data structure has the same value serialization semantics as `tunnel.Vector`, that is, each value stored is as if wrapped inside a `tunnel.Share` for enforced share serialization. `tunnel.Hash` uses `tds.Hash` as the underlying data structure. It could be useful for storing shared state data across different threads or blocks. To create a hash table, simply call the constructor like below.
+
+```lua
+hash = tunnel.Hash()
+```
+
+As an example, the following code use the hash table to store a counter for the progress of each thread.
+
+```lua
+job = function (state)
+   for i = 1, 6 do
+      state['thread_'..tostring(__threadid)] =
+         (state['thread_'..tostring(__threadid)] or 0) + 1
+   end
+end
+
+state = tunnel.Hash()
+block = tunnel.Block(3)
+block:add(state)
+block:run(job)
+result, status = block:synchronize()
+
+for key, value in pairs(state) do
+   if type(value) == 'number' then
+      print(key, value)
+   else
+      print(key, value.data[1])
+   end
+end
+```
+
+Here is one possible output
+
+```
+thread_1        6
+thread_3        6
+thread_2        6
+```
+
+<a name="tunnel.hash.get"></a>
+### `value, hash = hash:get(key)` or `value = hash[key]` ###
+
+This method is synchronous getter, a read-only operation. It gets the value at `key` and return it. If `status == true`, the get operation is successful.
+
+If there are other modification operations, the synchronous getter will wait for them to end. Therefore, the get will always be attempted.
+
+<a name="tunnel.hash.getasync"></a>
+### `value, status = hash:getAsync(key)` ###
+
+This method is asynchronous getter, a read-only operation. It gets the value at `key` and return it. If `status == true`, the get operation is attempted and successful.
+
+If there are other modification operations, the asynchronous getter will return immediately and `status` will be `nil` in this case. Therefore, the get may not be attempted.
+
+<a name="tunnel.hash.set"></a>
+### `status = hash:set(key, value)` or `hash[key] = value` ###
+
+This method is synchronous setter, a modification operation. It sets the value at `key` to be `value`. If `status == true`, the set operation is successful.
+
+If there are other operations, the synchronous setter will wait for exclusive access. Therefore, the set will always be attempted.
+
+> Warning: due to Lua metatable limitations, if the `__newindex` operator is used such as `hash[key] = value`, make sure `key` is not any data member or any function name of the `tunnel.Hash` data structure. The only data member currently is `hash.hash`, but there is no guarantee that this will not change in the future.
+
+<a name="tunnel.hash.setasync"></a>
+### `status = hash:setAsync(key, value)` ###
+
+This method is asynchronous setter, a modification operation. It sets the value at `key` to be `value`. If `status == true`, the set operation is attempted and successful.
+
+If there are other operations, the asynchronous setter return immediately and `status` will be `nil` in this case. Therefore, the set may not be attempted.
+
+<a name="tunnel.hash.size"></a>
+### `size = hash:size()` ###
+
+This method is synchronous size property, a read-only operation. It gets the size of the hash. If `size ~= nil`, the size property function is successful.
+
+If there are other modification operations, the synchronous size property function will wait for them to end. Therefore, the size property function will always be attempted.
+
+<a name="tunnel.hash.sizeasync"></a>
+### `size = hash:sizeAsync()` ###
+
+This method is asynchronous size property, a read-only operation. It gets the size of the hash. If `size ~= nil`, the size property function is attempted and successful.
+
+If there are other modification operations, the asynchronous size property function will return immediately. Therefore, the size property function may not be attempted.
+
+<a name="tunnel.hash.iterator"></a>
+### `iterator, status = hash:iterator()` or `iterator = pairs(hash)` ###
+
+This method is synchronous iterator, a read-only operation. It gets a snapshot clone of the hash and put its keyss and values for iteration. If `status == true`, the iterator obtain is successful.
+
+If there are other modification operations, the synchronous iterator will wait for them to end. Therefore, the iterator obtain will always be attempted.
+
+<a name="tunnel.hash.iteratorasync"></a>
+### `iterator, status = hash:iteratorAsync()` ###
+
+This method is asynchronous iterator, a read-only operation. It gets a snapshot clone of the hash and put its keys and values for iteration. If `status == true`, the iterator obtain is attempted and successful.
+
+If there are other modification operations, the asynchronous iterator will return immediately. Therefore, the iterator obtain may not be attempted.
+
+<a name="tunnel.hash.tostring"></a>
+### `str = hash:toString()` or `str = tostring(hash)` ###
+
+This method is synchronous string conversion, a read-only operation. It returns the string representation of the underlying `tds.Hash`. If `str ~= nil`, the string conversion is successful.
+
+If there are other modification operations, the synchronous string conversion will wait for them to end. Therefore the string conversion will always be attempted.
+
+Note that becuase the values stored in `hash` are serialized, the string conversion result may not be readable.
+
+<a name="tunnel.hash.tostringasync"></a>
+### `str = hash:toStringAsync()` ###
+
+This method is asynchronous string conversion, a read-only operation. It returns the string representation of the underlying `tds.Hash`. If `str ~= nil`, the string conversion is attempted and successful.
+
+If there are other modification operations, the asynchronous string conversion will return immediately. Therefore the string conversion may not be attempted.
+
+Note that becuase the values stored in `hash` are serialized, the string conversion result may not be readable.
+
+<a name="tunnel.hash.summary"></a>
+### Summary ###
+
+The following is a table summarizing all the functions in `tunnel.Vector` and their compatibility. Note that all read-only operations are compatible with each other, which means that multiple threads can do multiple read-only operations at the same time.
+
+|                  |     Type     | Other Read-only | Other Modification | Incompatibility Behavior |
+|------------------|:------------:|:---------------:|:------------------:|--------------------------|
+| `get`            | Read-only    |    Compatible   |    Incompatible    | Wait for access          |
+| `getAsync`       | Read-only    |    Compatible   |    Incompatible    | Return immediately       |
+| `set`            | Modification |   Incompatible  |    Incompatible    | Wait for access          |
+| `setAsync`       | Modification |   Incompatible  |    Incompatible    | Return immediately       |
+| `size`           | Read-only    |    Compatible   |    Incompatible    | Wait for access          |
+| `sizeAsync`      | Read-only    |    Compatible   |    Incompatible    | Return immediately       |
+| `iterator`       | Read-only    |    Compatible   |    Incompatible    | Wait for access          |
+| `iteratorAsync`  | Read-only    |    Compatible   |    Incompatible    | Return immediately       |
+| `toString`       | Read-only    |    Compatible   |    Incompatible    | Wait for access          |
+| `toStringAsync`  | Read-only    |    Compatible   |    Incompatible    | Return immediately       |
