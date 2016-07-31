@@ -7,7 +7,7 @@ Tunnel is a data driven framework for distributed computing in Torch7. It consis
 * [`tunnel.Atomic`](#tunnel.atomic): an atomic object wrapper. It can be used to wrap a data object using the [reader-writer lock model](https://en.wikipedia.org/wiki/Readers%E2%80%93writers_problem), with both synchronous and asynchronous interface.
 * [`tunnel.Printer`](#tunnel.printer): an atomic printer to standard output.
 * [`tunnel.Vector`](#tunnel.vector): an synchronized vector data structure that can be used as an array, a queue, or a stack. It has both synchronous and asynchronous interface.
-* [`tunnel.Hash`](#tunnel.hash): a synchronized hash table. It has both synchronous ahd asynchronous interface.
+* [`tunnel.Hash`](#tunnel.hash): a synchronized hash table. It has both synchronous and asynchronous interface.
 
 All of these classes will be available if you execute `require('tunnel')` in your program.
 
@@ -398,19 +398,19 @@ A synchronous write operation in which `callback` is called by passing `atomic.d
 
 `atomic:write` acquires exclusive access to the data when executing `callback`. If there are other writers or readers accessing data, the synchronous writer waits until all these jobs are finished before acquiring the exclusive access and executing `callback`. Therefore, a synchronous write operation will always be successful.
 
-<a name="tunnel.atomic.read"></a>
-### `result = atomic:read(callback)` ###
-
-A synchronous read operation in which `callback` is called by passing `atomic.data` as its argument. The result after executing `callback(atomic.data)` is returned.
-
-`atomic:read()` allows multiple readers (synchronous or asynchronous) to access data, so one must ensure that `callback` should do read-only operations. If some write operation is executing when it attempts to access data, the synchronous reader waits until the writer is finished before executing `callback`. Therefore, a synchronous read operation will always be successful.
-
 <a name="tunnel.atomic.writeasync"></a>
 ### `result = atomic:writeAsync(callback)` ###
 
 An asynchronous write operation in which `callback` is called by passing `atomic.data` as its argument. If the data access can be acquired successfully, the result after executing `callback(atomic.data)` is returned.
 
 `atomic:writeAsync` attempts to acquire exclusive access to the data when executing `callback`. If there are other writers or readers accessing data, the asynchronous writer returns immediately without executing `callback`. Therefore, an asynchronous write operation may fail.
+
+<a name="tunnel.atomic.read"></a>
+### `result = atomic:read(callback)` ###
+
+A synchronous read operation in which `callback` is called by passing `atomic.data` as its argument. The result after executing `callback(atomic.data)` is returned.
+
+`atomic:read()` allows multiple readers (synchronous or asynchronous) to access data, so one must ensure that `callback` should do read-only operations. If some write operation is executing when it attempts to access data, the synchronous reader waits until the writer is finished before executing `callback`. Therefore, a synchronous read operation will always be successful.
 
 <a name="tunnel.atomic.readasync"></a>
 ### `result = atomic:readAsync(callback)` ###
@@ -419,14 +419,16 @@ An asynchronous read operation in which `callback` is called by passing `atomic.
 
 `atomic:readAsync()` allows multiple readers (synchronous or asynchronous) to access data, so one must ensure that `callback` should do read-only operations. If some write operation is executing when it attempts to access data, the asynchronous reader returns immediately without executing `callback`. Therefore, an asynchronous read operation may fail.
 
+### Summary ###
+
 The following table summarizes the compatibility and behavior of these four access functions.
 
-|            | Other Readers | Other Writers | Incompatibility Behavior |
-|------------|---------------|---------------|--------------------------|
-| write      |  Incomptable  |  Incomptable  | Wait for access          |
-| read       |   Comptable   |  Incomptable  | Wait for access          |
-| writeAsync |  Incomptable  |  Incomptable  | Return immediately       |
-| readAsync  |   Comptable   |  Incomptable  | Return immediately       |
+|              | Other Readers  | Other Writers  | Incompatibility Behavior |
+|--------------|----------------|----------------|--------------------------|
+| `write`      |  Incompatible  |  Incompatible  | Wait for access          |
+| `writeAsync` |  Incompatible  |  Incompatible  | Return immediately       |
+| `read`       |   Compatible   |  Incompatible  | Wait for access          |
+| `readAsync`  |   Compatible   |  Incompatible  | Return immediately       |
 
 <a name="tunnel.printer"></a>
 ## `tunnel.Printer` ##
@@ -493,6 +495,308 @@ printer:print(...)
 
 <a name="tunnel.vector"></a>
 ## `tunnel.Vector` ##
+
+`tunnel.Vector` is class that can represent an array, a queue or a stack. It has synchronous methods that wait for space or data availability, and asynchronous methods that returns immediately if no space or data available.
+
+The underlying storage is based on the `tds.Vec` class, with the additional mechanism of enforced share-serialization on values (not on indices since they are just numbers). Such enforcement has the following two advantages
+
+1. The type of data that can be stored in a vector is greatly expanded. For example, `tunnel.Vector` can store boolean values and Torch tensors, while `tds.Vec()` will give errors if used directly.
+2. The values can be transferred between threads with maximum compatibility between different types. Since it uses shared-serialization, the memory overhead is minimal.
+
+In short, any value you store in `tunnel.Vector` is automatically shared across different threads as if they were wrapped in `tunnel.Share`.
+
+To create a vector, simply call
+
+```
+vector = tunnel.Vector(size_hint)
+```
+
+The `size_hint` is a parameter used by `push*` to determine whether to add values to the vector any more.
+
+The following is an example of using `tunnel.Vector` to solve producer-consumer problem by using it as a product queue.
+
+```lua
+produce = function (vector, printer)
+   for i = 1, 6 do
+      local product = __threadid * 1000 + i
+      vector:pushBack(product)
+      printer('produce', __threadid, i, product)
+   end
+end
+
+consume = function (vector, printer)
+   local ffi = require('ffi')
+   ffi.cdef('unsigned int sleep(unsigned int seconds);')
+   for i = 1, 4 do
+      local product = vector:popFront()
+      printer('consume', __threadid, i, product)
+      -- Pretend it takes 1 second to consume a product
+      ffi.C.sleep(1)
+   end
+end
+
+
+local vector = tunnel.Vector(4)
+local printer = tunnel.Printer()
+local producer_block = tunnel.Block(2)
+local consumer_block = tunnel.Block(3)
+producer_block:add(vector, printer)
+consumer_block:add(vector, printer)
+producer_block:run(produce)
+consumer_block:run(consume)
+```
+
+The following is one possible output. Note that the program can end properly because the total number of products being produced is 12, and the same number of products will be consumed.
+
+```
+produce 1       1       1001
+produce 1       2       1002
+produce 1       3       1003
+produce 1       4       1004
+consume 1       1       1001
+produce 1       5       1005
+consume 2       1       1002
+produce 2       1       2001
+consume 3       1       1003
+produce 1       6       1006
+consume 1       2       1004
+produce 2       2       2002
+consume 2       2       1005
+produce 2       3       2003
+consume 3       2       2001
+produce 2       4       2004
+consume 1       3       1006
+produce 2       5       2005
+produce 2       6       2006
+consume 2       3       2002
+consume 3       3       2003
+consume 1       4       2004
+consume 2       4       2005
+consume 3       4       2006
+```
+
+<a name="tunnel.vector.insert"></a>
+### `status = vector:insert([index,] value)` ###
+
+This method is synchronous insertion, a modification operation. Insert the `value` at `index`, and shift all the original values starting from `index` to their next locations. If `index` is not provided, insert to the end of the vector. Insertion can only be successful when `index <= vector:size() + 1`, in which case `status` will be `true`. Otherwise `status` will be `nil`.
+
+If there are other operations accessing the vector, the synchronous insertion will wait for exclusive access. Therefore, the insertion will always be attempted.
+
+<a name="tunnel.vector.insertasync"></a>
+### `status = vector:insertAsync([index,] value)` ###
+
+This method is asynchronous insertion, a modification operation. Insert the `value` at `index`, and shift all the original values starting from `index` to their next locations. If `index` is not provided, insert to the end of the vector. If `status == true`, then an insertion operation is attempted and successful. It can only be successful when `index <= vector:size() + 1`, in which case `status` will be `true`. Otherwise `status` will be `nil`.
+
+If there are other operations accessing the vector, the asynchronous insertion will return immediately, in which case `status` is also `nil`. Therefore, the insertion may not be attempted.
+
+<a name="tunnel.vector.remove"></a>
+### `value, status = vector:remove([index])` ###
+
+This method is synchronous removal, a modification operation. It removes the value at `index`, and shift all the values starting from `index + 1` to their previous locations. If `index` is not provided, remove the value at the end of the vector. Removal can only be successful when `index <= vector:size()`, in which case `status` is `true` and `value` contains the removed value. Otherwise `status` will be `nil`.
+
+If there are are other operations accessing the vector, the synchronous removal will wait for exclusive access. Therefore, the removal will always be attempted.
+
+Note that it is possible for `value` to be `nil` when `status` is `true` since storing `nil` as value is allowed.
+
+<a name="tunnel.vector.removeasync"></a>
+### `value, status = vector:removeAsync([index])` ###
+
+This method is asynchronous removal, a modification operation. It removes the value at `index`, and shift all the values starting from `index + 1` to their previous locations. If `index` is not provided, remove the value at the end of the vector. If `status == true`, then a removal operation is attempted and successful. It can only be successful when `index <= vector:size()`, in which case `status` is `true` and `value` contains the removed value. Otherwise `status` will be `nil`.
+
+If there are are other operations accessing the vector, the asynchronous removal will return immediately, in which case `status` is also `nil`. Therefore, the removal may not be attempted.
+
+Note that it is possible for `value` to be `nil` when `status` is `true` since storing `nil` as value is allowed.
+
+<a name="tunnel.vector.pushfront"></a>
+### `status = vector:pushFront(value)` ###
+
+This method is synchronous front push, a modification operation. It inserts the value at the first location of the vector, and all the originals values will be moved to their next location. If `status == true`, then the push operation is successful.
+
+If `vector:size() >= vector.size_hint` (a value set when calling the constructor), the synchronous front push will wait until the `vector:size() < vector.size_hint` and then attempt to push. If there are other operations, the synchronous front will wait for exclusive access. Therefore, the push will always be attempted.
+
+Note that because there can be simutaneous attempts to push when `vector:size() < vector.size_hint` is satisfied, there is no guarantee that after pushing `vector:size()` is smaller than or equal to `vector.size_hint`. This is why the parameter is called a size "hint".
+
+<a name="tunnel.vector.pushfrontasync"></a>
+### `status = vector:pushFrontAsync(value)` ###
+
+This method is asynchronous front push, a modification operation. It inserts the value at the first location of the vector, and all the originals values will be moved to their next location. If `status == true`, then the push operation is attempted and successful.
+
+If `vector:size() >= vector.size_hint` (a value set when calling the constructor) or if there are other operations, the asynchronous push returns immediately and `status` will be `nil` in this case. Therefore, the push may not be attempted.
+
+Note that because there can be simutaneous attempts to push when `vector:size() < vector.size_hint` is satisfied, there is no guarantee that after pushing `vector:size()` is smaller than or equal to `vector.size_hint`. This is why the parameter is called a size "hint".
+
+<a name="tunnel.vector.popfront"></a>
+### `value, status = vector:popFront()` ###
+
+This method is synchronous front pop, a modification operation. It pops the value at the first location of the vector and shift all values startin from index 2 to their previous locations. If `status == true`, the pop operation is successful and `value` stores the popped value.
+
+If `vector:size() == 0`, the synchronouos pop will wait until a value is available in the vector and then attempt to pop. If there are other operations, the synchronous pop will wait for exclusive access. Therefore, the pop will always be attempted.
+
+Note that it is possible for `value` to be `nil` when `status` is `true` since storing `nil` as value is allowed.
+
+<a name="tunnel.vector.popfrontasync"></a>
+### `value, status = vector:popFrontAsync()` ###
+
+This method is asynchronous front pop, a modification operation. It pops the value at the first location of the vector and shift all values startin from index 2 to their previous locations. If `status == true`, the pop operation is attempted and successful, and `value` stores the popped value.
+
+If `vector:size() == 0` or if there are other operations, the synchronous pop will return immediately and `status` will be `nil` in this case. Therefore, the pop may not be attempted.
+
+Note that it is possible for `value` to be `nil` when `status` is `true` since storing `nil` as value is allowed.
+
+<a name="tunnel.vector.pushback"></a>
+### `status = vector:pushBack(value)` ###
+
+This method is synchronous back push, a modification operation. It inserts the value at the end of the vector. If `status == true`, then the push operation is successful.
+
+If `vector:size() >= vector.size_hint` (a value set when calling the constructor), the synchronous front push will wait until the `vector:size() < vector.size_hint` and then attempt to push. If there are other operations, the synchronous front will wait for exclusive access. Therefore, the push will always be attempted.
+
+Note that because there can be simutaneous attempts to push when `vector:size() < vector.size_hint` is satisfied, there is no guarantee that after pushing `vector:size()` is smaller than or equal to `vector.size_hint`. This is why the parameter is called a size "hint".
+
+<a name="tunnel.vector.pushbackasync"></a>
+### `status = vector:pushBackAsync(value)` ###
+
+This method is asynchronous back push, a modification operation. It inserts the value at the end of the vector. If `status == true`, then the push operation is attempted and successful.
+
+If `vector:size() >= vector.size_hint` (a value set when calling the constructor) or if there are other operations, the asynchronous push returns immediately and `status` will be `nil` in this case. Therefore, the push may not be attempted.
+
+Note that because there can be simutaneous attempts to push when `vector:size() < vector.size_hint` is satisfied, there is no guarantee that after pushing `vector:size()` is smaller than or equal to `vector.size_hint`. This is why the parameter is called a size "hint".
+
+<a name="tunnel.vector.popback"></a>
+### `value, status = vector:popBack()` ###
+
+This method is synchronous back pop, a modification operation. It pops the value at the end of the vector. If `status == true`, the pop operation is successful and `value` stores the popped value.
+
+If `vector:size() == 0`, the synchronouos pop will wait until a value is available in the vector and then attempt to pop. If there are other operations, the synchronous pop will wait for exclusive access. Therefore, the pop will always be attempted.
+
+Note that it is possible for `value` to be `nil` when `status` is `true` since storing `nil` as value is allowed.
+
+<a name="tunnel.vector.popbackasync"></a>
+### `value, status = vector:popBackAsync()` ###
+
+This method is asynchronous back pop, a modification operation. It pops the value at the end of the vector. If `status == true`, the pop operation is attempted and successful, and `value` stores the popped value.
+
+If `vector:size() == 0` or if there are other operations, the synchronous pop will return immediately and `status` will be `nil` in this case. Therefore, the pop may not be attempted.
+
+Note that it is possible for `value` to be `nil` when `status` is `true` since storing `nil` as value is allowed.
+
+<a name="tunnel.vector.get"></a>
+### `value, status = vector:get(index)` or `value = vector[index]` ###
+
+This method is synchronous getter, a read-only operation. It gets the value at `index` and return it. If `status == true`, the get operation is successful.
+
+If there are other modification operations, the synchronous getter will wait for them to end. Therefore, the get will always be attempted.
+
+<a name="tunnel.vector.getasync"></a>
+### `value, status = vector:getAsync(index)` ###
+
+This method is asynchronous getter, a read-only operation. It gets the value at `index` and return it. If `status == true`, the get operation is attempted and successful.
+
+If there are other modification operations, the asynchronous getter will return immediately and `status` will be `nil` in this case. Therefore, the get may not be attempted.
+
+<a name="tunnel.vector.set"></a>
+### `status = vector:set(index, value)` or `vector[index] = value` ###
+
+This method is synchronous setter, a modification operation. It sets the value at `index` to be `value`, resizing the vector to have size at least `index` if necessary by filling it with `nil` values. If `status == true`, the set operation is successful.
+
+If there are other operations, the synchronous setter will wait for exclusive access. Therefore, the set will always be attempted.
+
+<a name="tunnel.vector.setasync"></a>
+### `status = vector:setAsync(index, value)` ###
+
+This method is asynchronous setter, a modification operation. It sets the value at `index` to be `value`, resizing the vector to have size at least `index` if necessary by filling it with `nil` values. If `status == true`, the set operation is attempted and successful.
+
+If there are other operations, the synchronous setter will return immediately and `status` will be `nil` in this case. Therefore, the set may not be attempted.
+
+<a name="tunnel.vector.size"></a>
+### `size = vector:size()` or `size = #vector` ###
+
+This method is synchronous size property, a read-only operation. It gets the size of the vector. If `size ~= nil`, the size property function is successful.
+
+If there are other modification operations, the synchronous size property function will wait for them to end. Therefore, the size property function will always be attempted.
+
+<a name="tunnel.vector.sizeasync"></a>
+### `size = vector:sizeAsync()` ###
+
+This method is asynchronous size property, a read-only operation. It gets the size of the vector. If `size ~= nil`, the size property function is attempted and successful.
+
+If there are other modification operations, the asynchronous size property function will return immediately. Therefore, the size property function may not be attempted.
+
+<a name="tunnel.vector.sort"></a>
+### `status = vector:sort(compare)` ###
+
+This method is synchronous sort, a modification operation. It sorts the values according to the `compare` callback. The callback should accept two values, and `compare(a, b)` should return `true` if `a` should precede `b` in the order. If `status == true`, the sort is successful.
+
+If there are other operations, the synchronous sort will wait for exclusive access. Therefore, the sort operation will always be attempted.
+
+<a name="tunnel.vector.sortasync"></a>
+### `status = vector:sortAsync(compare)` ###
+
+This method is asynchronous sort, a modification operation. It sorts the values according to the `compare` callback. The callback should accept two values, and `compare(a, b)` should return `true` if `a` should precede `b` in the order. If `status == true`, the sort is attempted and successful.
+
+If there are other operations, the asynchronous sort will return immediately. Therefore, the sort operation may not be attempted.
+
+<a name="tunnel.vector.iterator"></a>
+### `iterator, status = vector:iterator()` or `iterator = ipairs(vector)` or `iterator = pairs(vector)` ###
+
+This method is synchronous iterator, a read-only operation. It gets a snapshot clone of the vector and put its indices and values for iteration. If `status == true`, the iterator obtain is successful.
+
+If there are other modification operations, the synchronous iterator will wait for them to end. Therefore, the iterator obtain will always be attempted.
+
+<a name="tunnel.vector.iteratorasync"></a>
+### `iterator, status = vector:iteratorAsync()` ###
+
+This method is asynchronous iterator, a read-only operation. It gets a snapshot clone of the vector and put its indices and values for iteration. If `status == true`, the iterator obtain is attempted and successful.
+
+If there are other modification operations, the asynchronous iterator will return immediately. Therefore, the iterator obtain may not be attempted.
+
+<a name="tunnel.vector.tostring"></a>
+### `str = vector:toString()` or `tostring(vector)` ###
+
+This method is synchronous string conversion, a read-only operation. It returns the string representation of the underlying `tds.Vec`. If `str ~= nil`, the string conversion is successful.
+
+If there are other modification operations, the synchronous string conversion will wait for them to end. Therefore the string conversion will always be attempted.
+
+Note that becuase the values stored in `vector` are serialized, the string conversion result may not be readable.
+
+<a name="tunnel.vector.tostringasync"></a>
+### `str = vector:toStringAsync()` ###
+
+This method is asynchronous string conversion, a read-only operation. It returns the string representation of the underlying `tds.Vec`. If `str ~= nil`, the string conversion is attempted and successful.
+
+If there are other modification operations, the asynchronous string conversion will return immediately. Therefore the string conversion may not be attempted.
+
+Note that becuase the values stored in `vector` are serialized, the string conversion result may not be readable.
+
+### Summary ###
+
+The following is a table summarizing all the functions in `tunnel.Vector` and their compatibility. Note that all read-only operations are compatible with each other, which means that multiple threads can do multiple read-only operations at the same time.
+
+|                  |     Type     | Other Read-only | Other Modification | Incompatibility Behavior |
+|------------------|:------------:|:---------------:|:------------------:|--------------------------|
+| `insert`         | Modification |   Incompatible  |    Incompatible    | Wait for access          |
+| `insertAsync`    | Modification |   Incompatible  |    Incompatible    | Return immediately       |
+| `remove`         | Modification |   Incomptable   |    Incompatible    | Wait for access          |
+| `removeAsync`    | Modification |   Incompatible  |    Incompatible    | Return immediately       |
+| `pushFront`      | Modification |   Incompatible  |    Incompatible    | Wait for access          |
+| `pushFrontAsync` | Modification |   Incompatible  |    Incompatible    | Return immediately       |
+| `popFront`       | Modification |   Incompatible  |    Incompatible    | Wait for access          |
+| `popFrontAsync`  | Modification |   Incompatible  |    Incompatible    | Return immediately       |
+| `pushBack`       | Modification |   Incompatible  |    Incompatible    | Wait for access          |
+| `pushBackAsync`  | Modification |   Incompatible  |    Incompatible    | Return immediately       |
+| `popBack`        | Modification |   Incompatible  |    Incompatible    | Wait for access          |
+| `popBackAsync`   | Modification |   Incompatible  |    Incompatible    | Return immediately       |
+| `get`            | Read-only    |    Compatible   |    Incompatible    | Wait for access          |
+| `getAsync`       | Read-only    |    Compatible   |    Incompatible    | Return immediately       |
+| `set`            | Modification |   Incompatible  |    Incompatible    | Wait for access          |
+| `setAsync`       | Modification |   Incompatible  |    Incompatible    | Return immediately       |
+| `size`           | Read-only    |    Compatible   |    Incompatible    | Wait for access          |
+| `sizeAsync`      | Read-only    |    Compatible   |    Incompatible    | Return immediately       |
+| `sort`           | Modification |   Incompatible  |    Incompatible    | Wait for access          |
+| `sortAsync`      | Modification |   Incompatible  |    Incompatible    | Return immediately       |
+| `iterator`       | Read-only    |    Compatible   |    Incompatible    | Wait for access          |
+| `iteratorAsync`  | Read-only    |    Compatible   |    Incompatible    | Return immediately       |
+| `toString`       | Read-only    |    Compatible   |    Incompatible    | Wait for access          |
+| `toStringAsync`  | Read-only    |    Compatible   |    Incompatible    | Return immediately       |
 
 <a name="tunnel.hash"></a>
 ## `tunnel.Hash` ##

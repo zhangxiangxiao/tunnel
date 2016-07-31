@@ -39,7 +39,7 @@ end
 
 -- Insert an item
 function Vector_:insert(...)
-   local status, inserted
+   local inserted = nil
    if select('#', ...) == 1 then
       local storage = serialize.save(select(1, ...))
       inserted = self.vector:write(
