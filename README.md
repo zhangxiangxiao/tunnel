@@ -22,6 +22,10 @@ Tunnel requires the following prerequisites.
 
 Luarocks should be able to install them automatically.
 
+## Documentation
+
+See the [doc directory](https://github.com/zhangxiangxiao/tunnel/tree/master/doc).
+
 ## Example: Consumer-Producer Problem
 
 Here is an example that demonstrates how to write a [producer-consumer problem](https://en.wikipedia.org/wiki/Producer%E2%80%93consumer_problem) solver without a single line of synchronization code using tunnel.

@@ -39,8 +39,13 @@ end
 
 function Block_:run(callback)
    self.count = self.count + 1
-   self.result[self.count] = Vector()
-   self.status[self.count] = Vector()
+   local result, status = Vector(), Vector()
+   for i = 1, self.size do
+      result[i] = nil
+      status[i] = nil
+   end
+   self.result[self.count] = result
+   self.status[self.count] = status
    for i = 1, self.size do
       local job = self:runJob(i, callback)
       self.block:addjob(i, job)
