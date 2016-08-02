@@ -268,33 +268,57 @@ end
 -- Set the item
 function Vector_:set(index, value)
    local storage = serialize.save(value)
-   return self.vector:write(
+   local count = self.vector:write(
       function (vector)
+         local count = 0
          if index > #vector then
             local nil_string = serialize.save(nil):string()
             for i = #vector + 1, index do
                vector[i] = nil_string
             end
+            count = index - #vector
          end
          vector[index] = storage:string()
-         return true
+         return count
       end)
+   if count == nil then
+      return nil
+   elseif count > 0 then
+      for i = 1, count do
+         self.inserted_condition:signal()
+      end
+      return true
+   else
+      return true
+   end
 end
 
 -- Set the item asynchronously
 function Vector_:setAsync(index, value)
    local storage = serialize.save(value)
-   return self.vector:write(
+   local count = self.vector:writeAsync(
       function (vector)
+         local count = 0
          if index > #vector then
             local nil_string = serialize.save(nil):string()
             for i = #vector + 1, index do
                vector[i] = nil_string
             end
+            count = index - #vector
          end
          vector[index] = storage:string()
-         return true
+         return count
       end)
+   if count == nil then
+      return nil
+   elseif count > 0 then
+      for i = 1, count do
+         self.inserted_condition:signal()
+      end
+      return true
+   else
+      return true
+   end
 end
 
 -- Get the size of the vector

@@ -497,7 +497,7 @@ printer:print(...)
 <a name="tunnel.vector"></a>
 ## `tunnel.Vector` ##
 
-`tunnel.Vector` is a class that can represent an array, a queue or a stack. It has synchronous methods that wait for space or data availability, and asynchronous methods that returns immediately if no space or data available.
+`tunnel.Vector` is a class that can represent an array, a queue or a stack. It has synchronous methods that wait for space or data availability, and asynchronous methods that returns immediately if no space or data available. `nil` values can be stored in a vector in the same way as any other kind of values. This means that setting a value at some index to `nil` does not remove it, different from usual Lua tables.
 
 The underlying storage is based on the `tds.Vec` class, with the additional mechanism of enforced share-serialization on values (not on indices since they are just numbers). Such enforcement has the following two advantages
 
@@ -629,7 +629,7 @@ Note that because there can be simutaneous attempts to push when `vector:size() 
 <a name="tunnel.vector.popfront"></a>
 ### `value, status = vector:popFront()` ###
 
-This method is synchronous front pop, a modification operation. It pops the value at the first location of the vector and shift all values startin from index 2 to their previous locations. If `status == true`, the pop operation is successful and `value` stores the popped value.
+This method is synchronous front pop, a modification operation. It pops the value at the first location of the vector and shift all values starting from index 2 to their previous locations. If `status == true`, the pop operation is successful and `value` stores the popped value.
 
 If `vector:size() == 0`, the synchronouos pop will wait until a value is available in the vector and then attempt to pop. If there are other operations, the synchronous pop will wait for exclusive access. Therefore, the pop will always be attempted.
 
@@ -638,7 +638,7 @@ Note that it is possible for `value` to be `nil` when `status` is `true` since s
 <a name="tunnel.vector.popfrontasync"></a>
 ### `value, status = vector:popFrontAsync()` ###
 
-This method is asynchronous front pop, a modification operation. It pops the value at the first location of the vector and shift all values startin from index 2 to their previous locations. If `status == true`, the pop operation is attempted and successful, and `value` stores the popped value.
+This method is asynchronous front pop, a modification operation. It pops the value at the first location of the vector and shift all values starting from index 2 to their previous locations. If `status == true`, the pop operation is attempted and successful, and `value` stores the popped value.
 
 If `vector:size() == 0` or if there are other operations, the synchronous pop will return immediately and `status` will be `nil` in this case. Therefore, the pop may not be attempted.
 
@@ -697,14 +697,14 @@ If there are other modification operations, the asynchronous getter will return 
 <a name="tunnel.vector.set"></a>
 ### `status = vector:set(index, value)` or `vector[index] = value` ###
 
-This method is synchronous setter, a modification operation. It sets the value at `index` to be `value`, resizing the vector to have size at least `index` if necessary by filling it with `nil` values. If `status == true`, the set operation is successful.
+This method is synchronous setter, a modification operation. It sets the value at `index` to be `value`, resizing the vector to have size at least `index` if necessary by filling it with `nil` values. Note that when `value == nil`, it means to set the value at `index` to nil rather than to delete the value. If `status == true`, the set operation is successful.
 
 If there are other operations, the synchronous setter will wait for exclusive access. Therefore, the set will always be attempted.
 
 <a name="tunnel.vector.setasync"></a>
 ### `status = vector:setAsync(index, value)` ###
 
-This method is asynchronous setter, a modification operation. It sets the value at `index` to be `value`, resizing the vector to have size at least `index` if necessary by filling it with `nil` values. If `status == true`, the set operation is attempted and successful.
+This method is asynchronous setter, a modification operation. It sets the value at `index` to be `value`, resizing the vector to have size at least `index` if necessary by filling it with `nil` values. Note that when `value == nil`, it means to set the value at `index` to nil rather than to delete the value. If `status == true`, the set operation is attempted and successful.
 
 If there are other operations, the synchronous setter will return immediately and `status` will be `nil` in this case. Therefore, the set may not be attempted.
 
@@ -805,6 +805,8 @@ The following is a table summarizing all the functions in `tunnel.Vector` and th
 
 `tunnel.Hash` is a class that can represent a hash table. This data structure has the same value serialization semantics as `tunnel.Vector`, that is, each value stored is as if wrapped inside a `tunnel.Share` for enforced share serialization. `tunnel.Hash` uses `tds.Hash` as the underlying data structure. It could be useful for storing shared state data across different threads or blocks. To create a hash table, simply call the constructor like below.
 
+`nil` values are not permitted in hash, and setting a value at some key to be `nil` will delete the entry. This is the same as Lua tables.
+
 ```lua
 hash = tunnel.Hash()
 ```
@@ -859,7 +861,7 @@ If there are other modification operations, the asynchronous getter will return 
 <a name="tunnel.hash.set"></a>
 ### `status = hash:set(key, value)` or `hash[key] = value` ###
 
-This method is synchronous setter, a modification operation. It sets the value at `key` to be `value`. If `status == true`, the set operation is successful.
+This method is synchronous setter, a modification operation. It sets the value at `key` to be `value`. If `value == nil`, the hash table entry is deleted. If `status == true`, the set operation is successful.
 
 If there are other operations, the synchronous setter will wait for exclusive access. Therefore, the set will always be attempted.
 
@@ -868,7 +870,7 @@ If there are other operations, the synchronous setter will wait for exclusive ac
 <a name="tunnel.hash.setasync"></a>
 ### `status = hash:setAsync(key, value)` ###
 
-This method is asynchronous setter, a modification operation. It sets the value at `key` to be `value`. If `status == true`, the set operation is attempted and successful.
+This method is asynchronous setter, a modification operation. It sets the value at `key` to be `value`. If `value == nil`, the hash table entry is deleted. If `status == true`, the set operation is attempted and successful.
 
 If there are other operations, the asynchronous setter return immediately and `status` will be `nil` in this case. Therefore, the set may not be attempted.
 
