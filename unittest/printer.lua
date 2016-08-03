@@ -39,13 +39,30 @@ function joe:printerTest()
       local ffi = require('ffi')
       ffi.cdef('unsigned int sleep(unsigned int seconds);')
       for i = 1, 4 do
-         printer('print', __threadid, i)
+         printer('print_sync', __threadid, i)
+         printer:printAsync('print_async', __threadid, i)
          ffi.C.sleep(1)
       end
       for i = 1, 4 do
          printer:write(
-            'write', '\t', tostring(__threadid), '\t', tostring(i), '\n')
+            'write_sync', '\t', tostring(__threadid), '\t', tostring(i), '\n')
+         printer:writeAsync(
+            'write_async', '\t', tostring(__threadid), '\t', tostring(i), '\n')
          ffi.C.sleep(1)
+      end
+      for i = 1, 4 do
+         printer:access(
+            function ()
+               print('access_sync', __threadid, i)
+               ffi.C.sleep(1)
+            end)
+         local status = printer:accessAsync(
+            function ()
+               print('access_async', __threadid, i)
+               ffi.C.sleep(1)
+               return true
+            end)
+         printer('access_async', __threadid, i, 'blocked')
       end
    end
    block:run(printer_job)
@@ -53,4 +70,3 @@ end
 
 joe.main()
 return joe
-

@@ -470,14 +470,46 @@ t without synchronization
 ```
 
 <a name="tunnel.printer.print"></a>
-### `printer:print(...)` ###
+### `status = printer:print(...)` ###
 
-A synchronized equivalent of calling `print(...)`. It also synchronizes with `printer:write(...)`.
+A synchronous equivalent of calling `print(...)`. If `status == true`, the print is successful.
+
+If there are other printing operations, the synchronous print will wait for them to end. Therefore, the print will always be attempted.
+
+<a name="tunnel.printer.printAsync"></a>
+### `status = printer:printAsync(...)` ###
+
+An asynchronous equivalent of calling `print(...)`. If `status == true`, the print is successful.
+
+If there are other printing operations, the asynchronous print will return immediately and `status` will be `nil` in this case. Therefore, the print may not be attempted.
 
 <a name="tunnel.printer.write"></a>
-### `printer:write(...)` ###
+### `status = printer:write(...)` ###
 
-A synchronized equivalent of calling `io.write(...)`. It also synchronizes with `printer:print(...)`.
+A synchronous equivalent of calling `io.write(...)`. If `status == true`, the write is successful.
+
+If there are other printing operations, the synchronous write will wait for them to end. Therefore, the write will always be attempted.
+
+<a name="tunnel.printer.writeAsync"></a>
+### `status = printer:writeAsync(...)` ###
+
+An asynchronous equivalent of calling `io.write(...)`. If `status == true`, the write is successful.
+
+If there are other printing operations, the asynchronous write will return immediately and `status` will be `nil` in this case. Therefore, the write may not be attempted.
+
+<a name="tunnel.printer.access"></a>
+### `result = printer:access(callback)` ###
+
+A synchronous access. It executes `callback()` and return its result. While `callback()` is executing, no printing is permitted. This is useful if you want to do some batch printing, such as iterating over synchronized data structures.
+
+If there are other printing operations, the synchronous access will wait for them to end. Therefore, the access will always be attempted.
+
+<a name="tunnel.printer.access"></a>
+### `result = printer:accessAsync(callback)` ###
+
+An asynchronous access. It executes `callback()` and return its result. While `callback()` is executing, no printing is permitted. This is useful if you want to do some batch printing, such as iterating over synchronized data structures.
+
+If there are other printing operations, the asynchronous access will return immediately without executing `callback`. Therefore, the access may not be attempted.
 
 <a name="tunnel.printer.call"></a>
 ### `printer:__call(...)` ###
