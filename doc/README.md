@@ -819,6 +819,10 @@ The following is a table summarizing all the functions in `tunnel.Vector` and th
 | `getAsync`       | Read-only    |    Compatible   |    Incompatible    | Return immediately       |
 | `set`            | Modification |   Incompatible  |    Incompatible    | Wait for access          |
 | `setAsync`       | Modification |   Incompatible  |    Incompatible    | Return immediately       |
+| `read`           | Read-only    |    Compatible   |    Incompatible    | Wait for access          |
+| `readAsync`      | Read-only    |    Compatible   |    Incompatible    | Return immediately       |
+| `write`          | Modification |   Incompatible  |    Incompatible    | Wait for access          |
+| `writeAsync`     | Modification |   Incompatible  |    Incompatible    | Return immediately       |
 | `size`           | Read-only    |    Compatible   |    Incompatible    | Wait for access          |
 | `sizeAsync`      | Read-only    |    Compatible   |    Incompatible    | Return immediately       |
 | `sort`           | Modification |   Incompatible  |    Incompatible    | Wait for access          |
