@@ -70,6 +70,61 @@ function joe:getSetTest()
    async_iterator_block:synchronize()
 end
 
+function joe:readWriteTest()
+   -- 2 synchronous read threads
+   local sync_read_block = Block(2)
+   sync_read_block:add(self.printer, self.hash)
+   sync_read_block:run(self:syncReadJob())
+
+   -- 3 synchronous write threads
+   local sync_write_block = Block(3)
+   sync_write_block:add(self.printer, self.hash)
+   sync_write_block:run(self:syncWriteJob())
+
+   -- 2 asynchronous read threads
+   local async_read_block = Block(2)
+   async_read_block:add(self.printer, self.hash)
+   async_read_block:run(self:asyncReadJob())
+
+   -- 3 asynchronous write threads
+   local async_write_block = Block(3)
+   async_write_block:add(self.printer, self.hash)
+   async_write_block:run(self:asyncWriteJob())
+
+   -- 1 synchronous iterator threads
+   local sync_iterator_block = Block(1)
+   sync_iterator_block:add(self.printer, self.hash)
+   sync_iterator_block:run(self:syncIteratorJob())
+
+   -- 1 synchronous iterator threads
+   local async_iterator_block = Block(1)
+   async_iterator_block:add(self.printer, self.hash)
+   async_iterator_block:run(self:asyncIteratorJob())
+
+   sync_read_block:synchronize()
+   sync_write_block:synchronize()
+   async_read_block:synchronize()
+   async_write_block:synchronize()
+   sync_iterator_block:synchronize()
+   async_iterator_block:synchronize()
+end
+
+function joe:syncGetJob()
+   return function (printer, hash)
+      local ffi = require('ffi')
+      local math = require('math')
+      local os = require('os')
+      ffi.cdef('unsigned int sleep(unsigned int seconds);')
+      math.randomseed(os.time() + 20000 + __threadid *1000)
+      for i = 1, 30 do
+         local key = tostring(math.random(100))
+         local value = hash[key]
+         printer('sync_get', __threadid, i, key, tostring(value))
+         ffi.C.sleep(2)
+      end
+   end
+end
+
 function joe:syncSetJob()
    return function (printer, hash)
       local ffi = require('ffi')
@@ -87,18 +142,22 @@ function joe:syncSetJob()
    end
 end
 
-function joe:syncGetJob()
+function joe:asyncGetJob()
    return function (printer, hash)
       local ffi = require('ffi')
       local math = require('math')
       local os = require('os')
       ffi.cdef('unsigned int sleep(unsigned int seconds);')
-      math.randomseed(os.time() + 20000 + __threadid *1000)
-      for i = 1, 30 do
+      math.randomseed(os.time() + 40000 + __threadid *1000)
+      for i = 1, 60 do
          local key = tostring(math.random(100))
-         local value = hash[key]
-         printer('sync_get', __threadid, i, key, tostring(value))
-         ffi.C.sleep(2)
+         local value, status = hash:getAsync(key)
+         if status == true then
+            printer('async_get', __threadid, i, key, tostring(value))
+         else
+            printer('async_get', __threadid, i, key, 'blocked')
+         end
+         ffi.C.sleep(1)
       end
    end
 end
@@ -124,7 +183,7 @@ function joe:asyncSetJob()
    end
 end
 
-function joe:asyncGetJob()
+function joe:syncReadJob()
    return function (printer, hash)
       local ffi = require('ffi')
       local math = require('math')
@@ -133,11 +192,77 @@ function joe:asyncGetJob()
       math.randomseed(os.time() + 40000 + __threadid *1000)
       for i = 1, 60 do
          local key = tostring(math.random(100))
-         local value, status = hash:getAsync(key)
+         local value, status = hash:read(
+            key, function (value) return value, true end)
          if status == true then
-            printer('async_get', __threadid, i, key, tostring(value))
+            printer('sync_read', __threadid, i, key, tostring(value))
          else
-            printer('async_get', __threadid, i, key, 'blocked')
+            printer('sync_read', __threadid, i, key, 'blocked')
+         end
+         ffi.C.sleep(1)
+      end
+   end
+end
+
+function joe:syncWriteJob()
+   return function (printer, hash)
+      local ffi = require('ffi')
+      local math = require('math')
+      local os = require('os')
+      ffi.cdef('unsigned int sleep(unsigned int seconds);')
+      math.randomseed(os.time() + 30000 + __threadid * 1000)
+      for i = 1, 60 do
+         local key = tostring(math.random(100))
+         local value = 20000 + __threadid * 1000 + i
+         local status, value = hash:write(
+            key, function (old_value) return value end)
+         if status == true then
+            printer('sync_write', __threadid, i, key, value)
+         else
+            printer('sync_write', __threadid, i, key, 'blocked')
+         end
+         ffi.C.sleep(1)
+      end
+   end
+end
+
+function joe:asyncReadJob()
+   return function (printer, hash)
+      local ffi = require('ffi')
+      local math = require('math')
+      local os = require('os')
+      ffi.cdef('unsigned int sleep(unsigned int seconds);')
+      math.randomseed(os.time() + 40000 + __threadid *1000)
+      for i = 1, 60 do
+         local key = tostring(math.random(100))
+         local value, status = hash:readAsync(
+            key, function (value) return value, true end)
+         if status == true then
+            printer('async_read', __threadid, i, key, tostring(value))
+         else
+            printer('async_read', __threadid, i, key, 'blocked')
+         end
+         ffi.C.sleep(1)
+      end
+   end
+end
+
+function joe:asyncWriteJob()
+   return function (printer, hash)
+      local ffi = require('ffi')
+      local math = require('math')
+      local os = require('os')
+      ffi.cdef('unsigned int sleep(unsigned int seconds);')
+      math.randomseed(os.time() + 30000 + __threadid * 1000)
+      for i = 1, 60 do
+         local key = tostring(math.random(100))
+         local value = 20000 + __threadid * 1000 + i
+         local status, value = hash:writeAsync(
+            key, function (old_value) return value end)
+         if status == true then
+            printer('async_write', __threadid, i, key, value)
+         else
+            printer('async_write', __threadid, i, key, 'blocked')
          end
          ffi.C.sleep(1)
       end

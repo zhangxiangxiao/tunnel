@@ -20,6 +20,34 @@ function Hash_:__init()
    return self
 end
 
+-- Get an item
+function Hash_:get(key)
+   local storage_string, status = self.hash:read(
+      function (hash)
+         return hash[key], true
+      end)
+   if storage_string then
+      local storage = torch.CharStorage():string(storage_string)
+      return serialize.load(storage), status
+   else
+      return nil, status
+   end
+end
+
+-- Get an item asynchronously
+function Hash_:getAsync(key)
+   local storage_string, status = self.hash:readAsync(
+      function (hash)
+         return hash[key], true
+      end)
+   if storage_string then
+      local storage = torch.CharStorage():string(storage_string)
+      return serialize.load(storage), status
+   else
+      return nil, status
+   end
+end
+
 -- Set an item
 function Hash_:set(key, value)
    if value ~= nil then
@@ -56,32 +84,74 @@ function Hash_:setAsync(key, value)
    end
 end
 
--- Get an item
-function Hash_:get(key)
-   local storage_string, status = self.hash:read(
+-- Read an item
+function Hash_:read(key, callback)
+   return self.hash:read(
       function (hash)
-         return hash[key], true
+         local value
+         local storage_string = hash[key]
+         if storage_string then
+            local storage = torch.CharStorage():string(storage_string)
+            value = serialize.load(storage)
+         end
+         return callback(value)
       end)
-   if storage_string then
-      local storage = torch.CharStorage():string(storage_string)
-      return serialize.load(storage), status
-   else
-      return nil, status
-   end
 end
 
--- Get an item asynchronously
-function Hash_:getAsync(key)
-   local storage_string, status = self.hash:readAsync(
+-- Read an item asynchronously
+function Hash_:readAsync(key, callback)
+   return self.hash:readAsync(
       function (hash)
-         return hash[key], true
+         local value
+         local storage_string = hash[key]
+         if storage_string then
+            local storage = torch.CharStorage():string(storage_string)
+            value = serialize.load(storage)
+         end
+         return callback(value)
       end)
-   if storage_string then
-      local storage = torch.CharStorage():string(storage_string)
-      return serialize.load(storage), status
-   else
-      return nil, status
-   end
+end
+
+-- Write an item
+function Hash_:write(key, callback)
+   return self.hash:write(
+      function (hash)
+         local value
+         local storage_string = hash[key]
+         if storage_string then
+            local storage = torch.CharStorage():string(storage_string)
+            value = serialize.load(storage)
+         end
+         local new_value = callback(value)
+         if new_value ~= nil then
+            local new_storage = serialize.save(new_value)
+            hash[key] = new_storage:string()
+         else
+            hash[key] = nil
+         end
+         return true, new_value
+      end)
+end
+
+-- Write an item asynchronously
+function Hash_:writeAsync(key, callback)
+   return self.hash:writeAsync(
+      function (hash)
+         local value
+         local storage_string = hash[key]
+         if storage_string then
+            local storage = torch.CharStorage():string(storage_string)
+            value = serialize.load(storage)
+         end
+         local new_value = callback(value)
+         if new_value ~= nil then
+            local new_storage = serialize.save(new_value)
+            hash[key] = new_storage:string()
+         else
+            hash[key] = nil
+         end
+         return true, new_value
+      end)
 end
 
 -- Get the size of the hash table
@@ -114,7 +184,7 @@ function Hash_:iterator()
       local iterator = pairs(clone)
       return function ()
          local key, value = iterator()
-         if value then
+         if value ~= nil then
             local storage = torch.CharStorage():string(value)
             return key, serialize.load(storage)
          end
@@ -137,7 +207,7 @@ function Hash_:iteratorAsync()
       local iterator = pairs(clone)
       return function ()
          local key, value = iterator()
-         if value then
+         if value ~= nil then
             local storage = torch.CharStorage():string(value)
             return key, serialize.load(storage)
          end

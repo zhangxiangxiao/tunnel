@@ -906,6 +906,34 @@ This method is asynchronous setter, a modification operation. It sets the value 
 
 If there are other operations, the asynchronous setter return immediately and `status` will be `nil` in this case. Therefore, the set may not be attempted.
 
+<a name="tunnel.hash.read"></a>
+### `result = hash:read(key, callback)` ###
+
+This method is synchronous read, a read-only operation. It gets the value at `key` and calls `callback(value)`. The result of `callback` is returned. While `callback` is executing, no modification operation is permitted so as to ensure that the value is not modified during `callback`. You should not make modification to `value` in `callback`.
+
+If there are other modification operations, the synchronous read will wait for them to end. Therefore, the read will always be attempted.
+
+<a name="tunnel.hash.readAsync"></a>
+### `result = hash:readAsync(key, callback)` ###
+
+This method is asynchronous read, a read-only operation. It gets the value at `key` and calls `callback(value)`. The result of `callback` is returned. While `callback` is executing, no modification operation is permitted so as to ensure that the value is not modified during `callback`. You should not make modifications to `value` in `callback`.
+
+If there are other modification operations, the asynchronous read will return immediately without executing `callback`. Therefore, the read may not be attempted.
+
+<a name="tunnel.hash.write"></a>
+### `status, value = hash:write(key, callback)` ###
+
+This method is synchronous write, a modification operation. It gets the value at `key` and calls `callback(value)`, then put `callback`'s returned value at `key` of the hash. If `status == true`, the write operation is successful. While `callback` is executing, neither modification nor read-only operation is permitted so as to ensure that the value can be modified during `callback`.
+
+If there are other operations, the synchronous write will wait for exclusive access. Therefore, the write will always be attempted.
+
+<a name="tunnel.hash.writeasync"></a>
+### `status, value = hash:writeAsync(key, callback)` ###
+
+This method is asynchronous write, a modification operation. It gets the value at `key` and calls `callback(value)`, then put `callback`'s returned value at `key` of the hash. If `status == true`, the write operation is attempted and successful. While `callback` is executing, neither modification nor read-only operation is permitted so as to ensure that the value can be modified during `callback`.
+
+If there are other operations, the asynchronous write will return immediately without executing `callback` and `status` will be `nil` in this case. Therefore, the write may not be attempted.
+
 <a name="tunnel.hash.size"></a>
 ### `size = hash:size()` ###
 
@@ -963,6 +991,10 @@ The following is a table summarizing all the functions in `tunnel.Hash` and thei
 | `getAsync`       | Read-only    |    Compatible   |    Incompatible    | Return immediately       |
 | `set`            | Modification |   Incompatible  |    Incompatible    | Wait for access          |
 | `setAsync`       | Modification |   Incompatible  |    Incompatible    | Return immediately       |
+| `read`           | Read-only    |    Compatible   |    Incompatible    | Wait for access          |
+| `readAsync`      | Read-only    |    Compatible   |    Incompatible    | Return immediately       |
+| `write`          | Modification |   Incompatible  |    Incompatible    | Wait for access          |
+| `writeAsync`     | Modification |   Incompatible  |    Incompatible    | Return immediately       |
 | `size`           | Read-only    |    Compatible   |    Incompatible    | Wait for access          |
 | `sizeAsync`      | Read-only    |    Compatible   |    Incompatible    | Return immediately       |
 | `iterator`       | Read-only    |    Compatible   |    Incompatible    | Wait for access          |
