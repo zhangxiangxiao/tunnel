@@ -951,7 +951,7 @@ If there are other modification operations, the asynchronous size property funct
 <a name="tunnel.hash.iterator"></a>
 ### `iterator, status = hash:iterator()` or `iterator = pairs(hash)` ###
 
-This method is synchronous iterator, a read-only operation. It gets a snapshot clone of the hash and put its keyss and values for iteration. If `status == true`, the iterator obtain is successful.
+This method is synchronous iterator, a read-only operation. It gets a snapshot clone of the hash and put its keys and values for iteration. If `status == true`, the iterator obtain is successful.
 
 If there are other modification operations, the synchronous iterator will wait for them to end. Therefore, the iterator obtain will always be attempted.
 
