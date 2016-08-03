@@ -301,6 +301,90 @@ function joe:getSetTest()
    async_iterator_block:terminate()
 end
 
+function joe:readWriteTest()
+   -- 3 synchronous insert threads
+   local sync_insert_block = threads.Threads(3, self:threadInit())
+   sync_insert_block:specific(true)
+   for i = 1, 3 do
+      local job = self:syncInsertJob()
+      sync_insert_block:addjob(i, job)
+   end
+
+   -- 2 synchronous read threads
+   local sync_read_block = threads.Threads(2, self:threadInit())
+   sync_read_block:specific(true)
+   for i = 1, 2 do
+      local job = self:syncReadJob()
+      sync_read_block:addjob(i, job)
+   end
+
+   -- 2 synchronous write threads
+   local sync_write_block = threads.Threads(2, self:threadInit())
+   sync_write_block:specific(true)
+   for i = 1, 2 do
+      local job = self:syncWriteJob()
+      sync_write_block:addjob(i, job)
+   end
+
+   -- 2 asynchronous read threads
+   local async_read_block = threads.Threads(2, self:threadInit())
+   async_read_block:specific(true)
+   for i = 1, 2 do
+      local job = self:asyncReadJob()
+      async_read_block:addjob(i, job)
+   end
+
+   -- 2 asynchronous write threads
+   local async_write_block = threads.Threads(2, self:threadInit())
+   async_write_block:specific(true)
+   for i = 1, 2 do
+      local job = self:asyncWriteJob()
+      async_write_block:addjob(i, job)
+   end
+
+   -- 1 synchronous sort thread
+   local sync_sort_block = threads.Threads(1, self:threadInit())
+   sync_sort_block:specific(true)
+   for i = 1, 1 do
+      local job = self:syncSortJob()
+      sync_sort_block:addjob(i, job)
+   end
+
+   -- 1 synchronous sort thread
+   local async_sort_block = threads.Threads(1, self:threadInit())
+   async_sort_block:specific(true)
+   for i = 1, 1 do
+      local job = self:asyncSortJob()
+      async_sort_block:addjob(i, job)
+   end
+
+   -- 1 synchronous iterator thread
+   local sync_iterator_block = threads.Threads(1, self:threadInit())
+   sync_iterator_block:specific(true)
+   for i = 1, 1 do
+      local job = self:syncIteratorJob()
+      sync_iterator_block:addjob(i, job)
+   end
+
+   -- 1 asynchronous iterator thread
+   local async_iterator_block = threads.Threads(1, self:threadInit())
+   async_iterator_block:specific(true)
+   for i = 1, 1 do
+      local job = self:asyncIteratorJob()
+      async_iterator_block:addjob(i, job)
+   end
+
+   sync_insert_block:terminate()
+   sync_read_block:terminate()
+   sync_write_block:terminate()
+   async_read_block:terminate()
+   async_write_block:terminate()
+   sync_sort_block:terminate()
+   async_sort_block:terminate()
+   sync_iterator_block:terminate()
+   async_iterator_block:terminate()
+end
+
 function joe:threadInit()
    return function()
       local torch = require('torch')
@@ -969,6 +1053,128 @@ function joe:asyncSortJob()
             print_mutex:unlock()
          end
          ffi.C.sleep(3)
+      end
+   end
+end
+
+function joe:syncReadJob()
+   local print_mutex_id = self.print_mutex:id()
+   local vector = self.vector
+   return function()
+      local ffi = require('ffi')
+      local math = require('math')
+      local os = require('os')
+      local threads = require('threads')
+
+      math.randomseed(os.time() + __threadid)
+      ffi.cdef('unsigned int sleep(unsigned int seconds);')
+      local print_mutex = threads.Mutex(print_mutex_id)
+      for i = 1, 30 do
+         local index = math.random(10)
+         local status, value = vector:read(
+            index, function (value) return true, value end)
+         if status == true then
+            print_mutex:lock()
+            print('sync_read', __threadid, i, index, value)
+            print_mutex:unlock()
+         else
+            print_mutex:lock()
+            print('sync_read', __threadid, i, index, value, 'blocked')
+            print_mutex:unlock()
+         end
+         ffi.C.sleep(2)
+      end
+   end
+end
+
+function joe:syncWriteJob()
+   local print_mutex_id = self.print_mutex:id()
+   local vector = self.vector
+   return function()
+      local ffi = require('ffi')
+      local math = require('math')
+      local os = require('os')
+      local threads = require('threads')
+
+      math.randomseed(os.time() + __threadid)
+      ffi.cdef('unsigned int sleep(unsigned int seconds);')
+      local print_mutex = threads.Mutex(print_mutex_id)
+      for i = 1, 60 do
+         local index = math.random(10)
+         local value = 50000 + __threadid * 1000 + i
+         local status, value = vector:write(
+            index, function (old_value) return value end)
+         if status == true then
+            print_mutex:lock()
+            print('sync_write', __threadid, i, index, value)
+            print_mutex:unlock()
+         else
+            print_mutex:lock()
+            print('sync_write', __threadid, i, index, value, 'blocked')
+            print_mutex:unlock()
+         end
+         ffi.C.sleep(1)
+      end
+   end
+end
+
+function joe:asyncReadJob()
+   local print_mutex_id = self.print_mutex:id()
+   local vector = self.vector
+   return function()
+      local ffi = require('ffi')
+      local math = require('math')
+      local os = require('os')
+      local threads = require('threads')
+
+      math.randomseed(os.time() + __threadid)
+      ffi.cdef('unsigned int sleep(unsigned int seconds);')
+      local print_mutex = threads.Mutex(print_mutex_id)
+      for i = 1, 30 do
+         local index = math.random(10)
+         local status, value = vector:readAsync(
+            index, function (value) return true, value end)
+         if status == true then
+            print_mutex:lock()
+            print('async_read', __threadid, i, index, value)
+            print_mutex:unlock()
+         else
+            print_mutex:lock()
+            print('async_read', __threadid, i, index, value, 'blocked')
+            print_mutex:unlock()
+         end
+         ffi.C.sleep(2)
+      end
+   end
+end
+
+function joe:asyncWriteJob()
+   local print_mutex_id = self.print_mutex:id()
+   local vector = self.vector
+   return function()
+      local ffi = require('ffi')
+      local math = require('math')
+      local os = require('os')
+      local threads = require('threads')
+
+      math.randomseed(os.time() + __threadid)
+      ffi.cdef('unsigned int sleep(unsigned int seconds);')
+      local print_mutex = threads.Mutex(print_mutex_id)
+      for i = 1, 60 do
+         local index = math.random(10)
+         local value = 50000 + __threadid * 1000 + i
+         local status, value = vector:writeAsync(
+            index, function (old_value) return value end)
+         if status == true then
+            print_mutex:lock()
+            print('async_write', __threadid, i, index, value)
+            print_mutex:unlock()
+         else
+            print_mutex:lock()
+            print('async_write', __threadid, i, index, value, 'blocked')
+            print_mutex:unlock()
+         end
+         ffi.C.sleep(1)
       end
    end
 end

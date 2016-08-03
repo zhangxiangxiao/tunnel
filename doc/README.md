@@ -708,6 +708,34 @@ This method is asynchronous setter, a modification operation. It sets the value 
 
 If there are other operations, the synchronous setter will return immediately and `status` will be `nil` in this case. Therefore, the set may not be attempted.
 
+<a name="tunnel.vector.read"></a>
+### `result = vector:read(index, callback)` ###
+
+This method is synchronous read, a read-only operation. It gets the value at `index` and calls `callback(value)`. The result of `callback` is returned. While `callback` is executing, no modification operation is permitted so as to ensure that the value is not modified during `callback`. You should not make modification to `value` in `callback`.
+
+If there are other modification operations, the synchronous read will wait for them to end. Therefore, the read will always be attempted.
+
+<a name="tunnel.vector.readAsync"></a>
+### `result = vector:readAsync(index, callback)` ###
+
+This method is asynchronous read, a read-only operation. It gets the value at `index` and calls `callback(value)`. The result of `callback` is returned. While `callback` is executing, no modification operation is permitted so as to ensure that the value is not modified during `callback`. You should not make modifications to `value` in `callback`.
+
+If there are other modification operations, the asynchronous read will return immediately without executing `callback`. Therefore, the read may not be attempted.
+
+<a name="tunnel.vector.write"></a>
+### `status, value = vector:write(index, callback)` ###
+
+This method is synchronous write, a modification operation. It gets the value at `index` and calls `callback(value)`, then put `callback`'s returned value at `index` of the vector. If `status == true`, the write operation is successful. While `callback` is executing, neither modification nor read-only operation is permitted so as to ensure that the value can be modified during `callback`.
+
+If there are other operations, the synchronous write will wait for exclusive access. Therefore, the write will always be attempted.
+
+<a name="tunnel.vector.writeasync"></a>
+### `status, value = vector:writeAsync(index, callback)` ###
+
+This method is asynchronous write, a modification operation. It gets the value at `index` and calls `callback(value)`, then put `callback`'s returned value at `index` of the vector. If `status == true`, the write operation is attempted and successful. While `callback` is executing, neither modification nor read-only operation is permitted so as to ensure that the value can be modified during `callback`.
+
+If there are other operations, the asynchronous write will return immediately without executing `callback` and `status` will be `nil` in this case. Therefore, the write may not be attempted.
+
 <a name="tunnel.vector.size"></a>
 ### `size = vector:size()` or `size = #vector` ###
 

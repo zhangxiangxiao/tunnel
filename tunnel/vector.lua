@@ -283,12 +283,10 @@ function Vector_:set(index, value)
       end)
    if count == nil then
       return nil
-   elseif count > 0 then
+   else
       for i = 1, count do
          self.inserted_condition:signal()
       end
-      return true
-   else
       return true
    end
 end
@@ -311,13 +309,107 @@ function Vector_:setAsync(index, value)
       end)
    if count == nil then
       return nil
-   elseif count > 0 then
+   else
       for i = 1, count do
          self.inserted_condition:signal()
       end
       return true
+   end
+end
+
+-- Read synchronously
+function Vector_:read(index, callback)
+   return self.vector:read(
+      function (vector)
+         local value
+         local storage_string = vector[index]
+         if storage_string then
+            local storage = torch.CharStorage():string(storage_string)
+            value = serialize.load(storage)
+         end
+         return callback(value)
+      end)
+end
+
+-- Read asynchronously
+function Vector_:readAsync(index, callback)
+   return self.vector:readAsync(
+      function (vector)
+         local value
+         local storage_string = vector[index]
+         if storage_string then
+            local storage = torch.CharStorage():string(storage_string)
+            value = serialize.load(storage)
+         end
+         return callback(value)
+      end)
+end
+
+-- Write synchronously
+function Vector_:write(index, callback)
+   local count, new_value = self.vector:write(
+      function (vector)
+         local value
+         local storage_string = vector[index]
+         if storage_string then
+            local storage = torch.CharStorage():string(storage_string)
+            value = serialize.load(storage)
+         end
+         local new_value = callback(value)
+         local new_storage = serialize.save(new_value)
+         local count = 0
+         if index > #vector then
+            local nil_string = serialize.save(nil):string()
+            for i = #vector + 1, index do
+               vector[i] = nil_string
+            end
+            count = index - #vector
+         end
+         vector[index] = new_storage:string()
+         return count, new_value
+      end)
+
+   if count == nil then
+      return nil, nil
    else
-      return true
+      for i = 1, count do
+         self.inserted_condition:signal()
+      end
+      return true, new_value
+   end
+end
+
+-- Write asynchronously
+function Vector_:writeAsync(index, callback)
+   local count, new_value = self.vector:writeAsync(
+      function (vector)
+         local value
+         local storage_string = vector[index]
+         if storage_string then
+            local storage = torch.CharStorage():string(storage_string)
+            value = serialize.load(storage)
+         end
+         local new_value = callback(value)
+         local new_storage = serialize.save(new_value)
+         local count = 0
+         if index > #vector then
+            local nil_string = serialize.save(nil):string()
+            for i = #vector + 1, index do
+               vector[i] = nil_string
+            end
+            count = index - #vector
+         end
+         vector[index] = new_storage:string()
+         return count, new_value
+      end)
+
+   if count == nil then
+      return nil, nil
+   else
+      for i = 1, count do
+         self.inserted_condition:signal()
+      end
+      return true, new_value
    end
 end
 
