@@ -8,6 +8,7 @@ Tunnel is a data driven framework for distributed computing in Torch7. It consis
 * [`tunnel.Printer`](#tunnel.printer): an atomic printer to standard output.
 * [`tunnel.Vector`](#tunnel.vector): an synchronized vector data structure that can be used as an array, a queue, or a stack. It has both synchronous and asynchronous interface.
 * [`tunnel.Hash`](#tunnel.hash): a synchronized hash table. It has both synchronous and asynchronous interface.
+* [`tunnel.Serializer`](#tunnel.serializer): shared-serialization class. Do not use it unless you know what you are doing.
 
 All of these classes will be available if you execute `require('tunnel')` in your program.
 
@@ -225,7 +226,7 @@ $
 <a name="tunnel.share"></a>
 ## `tunnel.Share` ##
 
-`tunnel.Share` is a class that enforces shared serialization for the data it wraps. It utilizes `threads.sharedserialization` for the job, and right now the following data can be share-serialized
+`tunnel.Share` is a class that enforces shared serialization for the data it wraps. It utilizes [`tunnel.Serializer`](#tunnel.serializer) for the job, and right now the following data can be share-serialized
 
 * `torch.*Storage`
 * `torch.*Tensor`
@@ -1033,3 +1034,52 @@ The following is a table summarizing all the functions in `tunnel.Hash` and thei
 | `iteratorAsync`  | Read-only    |    Compatible   |    Incompatible    | Return immediately       |
 | `toString`       | Read-only    |    Compatible   |    Incompatible    | Wait for access          |
 | `toStringAsync`  | Read-only    |    Compatible   |    Incompatible    | Return immediately       |
+
+<a name="tunnel.serializer"></a>
+## `tunnel.Serializer` ##
+
+`tunnel.Serializer` is a class controlling serialization of data. It enabled share-serialization for the following data types by storing only their underlying pointers:
+
+* `torch.*Storage`
+* `torch.*Tensor`
+* `tds.Hash` or `tds.hash`
+* `tds.Vec` or `tds.vec`
+*  The above objects inside plain lua tables (including nested tables), such as `nn` modules.
+
+It is used extensively across all `tunnel` data structures. You should not use this class unless you know what you are doing.
+
+The constructor requires no arguments.
+
+```lua
+serializer = tunnel.Serializer()
+```
+
+<a name="tunnel.serializer.save"></a>
+### `storage = serializer:save(object)` ###
+
+Save `object` to `storage`. `storage` is a `torch.CharStorage`.  If `object` is share-serializable, it will store its pointer and add its reference counter by one.
+
+<a name="tunnel.serializer.load"></a>
+### `object = serializer:load(storage)` ###
+
+Load `object` from `storage`. `storage` is a `torch.CharStorage`. If `object` is share-serializable, you should not use `storage` to deserialize the same object again.
+
+<a name="tunnel.serializer.retain"></a>
+### `object = serializer:retain(storage)` ###
+
+Load `object` from `storage` and retain validity of `storage`. `storage` is a `torch.CharStroage`. If `object` is share-serializable, you can use `storage` to deserialize the same object again.
+
+<a name="tunnel.serializer.swapwrite"></a>
+### `serializer.swapWrite()` ###
+
+A static function to swap the metatables of share-serializable classes for writing. Call it again to restore the metatables.
+
+<a name="tunnel.serializer.swapread"></a>
+### `serializer.swapRead()` ###
+
+A static function to swap the metatables of share-serializable classes for loading. Call it again to restore the metatables.
+
+<a name="tunnel.serializer.swapretain"></a>
+### `serializer.swapRetain()` ###
+
+A static function to swap the metatables of share-serializable classes for retained loading. Call it again to restore the metatables.

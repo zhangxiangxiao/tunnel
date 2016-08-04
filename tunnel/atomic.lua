@@ -3,9 +3,10 @@ Multi-threaded reader-writer wrapper
 Copyright 2016 Xiang Zhang
 --]]
 
-local serialize = require('threads.sharedserialize')
 local threads = require('threads')
 local torch = require('torch')
+
+local Serializer = require('tunnel.serializer')
 
 tunnel = tunnel or {}
 
@@ -16,6 +17,7 @@ local Atomic_ = torch.class('tunnel.Atomic')
 -- data: the data to be protected. Must be shared serializable.
 function Atomic_:__init(data)
    self.data = data
+   self.serializer = Serializer()
 
    self.count = torch.LongTensor(2):fill(0)
    self.mutex = threads.Mutex()
@@ -177,10 +179,10 @@ end
 
 -- Serialization of this object
 function Atomic_:__write(f)
-   local data = serialize.save(self.data)
+   local data = self.serializer:save(self.data)
    f:writeObject(data)
 
-   local count = serialize.save(self.count)
+   local count = self.serializer:save(self.count)
    f:writeObject(count)
 
    f:writeObject(self.mutex:id())
@@ -190,11 +192,15 @@ end
 
 -- Deserialization of this object
 function Atomic_:__read(f)
+   if not self.serializer then
+      self.serializer = Serializer()
+   end
+
    local data = f:readObject()
-   self.data = serialize.load(data)
+   self.data = self.serializer:load(data)
 
    local count = f:readObject()
-   self.count = serialize.load(count)
+   self.count = self.serializer:load(count)
 
    self.mutex = threads.Mutex(f:readObject())
    self.wrote_condition = threads.Condition(f:readObject())
