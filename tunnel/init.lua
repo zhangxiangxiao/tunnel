@@ -9,6 +9,7 @@ require('tunnel.atomic')
 require('tunnel.block')
 require('tunnel.hash')
 require('tunnel.printer')
+require('tunnel.serializer')
 require('tunnel.share')
 require('tunnel.vector')
 
