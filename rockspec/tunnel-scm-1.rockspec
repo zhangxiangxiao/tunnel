@@ -27,6 +27,7 @@ build = {
       ['tunnel.block'] = 'tunnel/block.lua',
       ['tunnel.hash'] = 'tunnel/hash.lua',
       ['tunnel.printer'] = 'tunnel/printer.lua',
+      ['tunnel.serializer'] = 'tunnel/serializer.lua',
       ['tunnel.share'] = 'tunnel/share.lua',
       ['tunnel.vector'] = 'tunnel/vector.lua'
    }
