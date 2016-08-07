@@ -2,9 +2,15 @@
 
 Tunnel is a data driven framework for distributed computing in Torch 7.
 
+Currently tunnel is still a prototype. See [issues](https://github.com/zhangxiangxiao/tunnel/issues) for any bugs that may make it unfit for your purposes.
+
 ## Why data driven?
 
 Machine learning systems are intrinsically data-driven. There is data everywhere -- including training and testing samples, the model parameters, and various state used in different algorithms. This means that by carefully designing and implementing various synchronized data structures, we can make it possible to program distributed machine learning systems without a single line of synchronization code. It is in contrast with program-driven methodology where the programmer has to take care of mutexes, condition variables, semaphores and message passing himself.
+
+## Documentation
+
+See the [doc directory](https://github.com/zhangxiangxiao/tunnel/tree/master/doc).
 
 ## Installation
 
@@ -21,10 +27,6 @@ Tunnel requires the following prerequisites.
 * [tds](https://github.com/torch/tds)
 
 Luarocks should be able to install them automatically.
-
-## Documentation
-
-See the [doc directory](https://github.com/zhangxiangxiao/tunnel/tree/master/doc).
 
 ## Example: Consumer-Producer Problem
 
