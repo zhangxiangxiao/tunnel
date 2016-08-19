@@ -583,8 +583,12 @@ end
 function Vector_:__write(f)
    f:writeObject(self.vector)
    f:writeObject(self.size_hint)
+
+   local mutex = threads.Mutex(self.mutex:id())
    f:writeObject(self.mutex:id())
+   local inserted_condition = threads.Condition(self.inserted_condition:id())
    f:writeObject(self.inserted_condition:id())
+   local removed_condition = threads.Condition(self.removed_condition:id())
    f:writeObject(self.removed_condition:id())
 end
 
@@ -594,9 +598,13 @@ function Vector_:__read(f)
 
    self.vector = f:readObject()
    self.size_hint = f:readObject()
+
    self.mutex = threads.Mutex(f:readObject())
+   self.mutex:free()
    self.inserted_condition = threads.Condition(f:readObject())
+   self.inserted_condition:free()
    self.removed_condition = threads.Condition(f:readObject())
+   self.removed_condition:free()
 
    -- Lua 5.1 / LuaJIT garbage collection
    if newproxy then

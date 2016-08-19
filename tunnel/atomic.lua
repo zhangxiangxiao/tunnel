@@ -181,12 +181,14 @@ end
 function Atomic_:__write(f)
    local data = self.serializer:save(self.data)
    f:writeObject(data)
-
    local count = self.serializer:save(self.count)
    f:writeObject(count)
 
+   local mutex = threads.Mutex(self.mutex:id())
    f:writeObject(self.mutex:id())
+   local wrote_condition = threads.Condition(self.wrote_condition:id())
    f:writeObject(self.wrote_condition:id())
+   local read_condition = threads.Condition(self.read_condition:id())
    f:writeObject(self.read_condition:id())
 end
 
@@ -198,13 +200,15 @@ function Atomic_:__read(f)
 
    local data = f:readObject()
    self.data = self.serializer:load(data)
-
    local count = f:readObject()
    self.count = self.serializer:load(count)
 
    self.mutex = threads.Mutex(f:readObject())
+   self.mutex:free()
    self.wrote_condition = threads.Condition(f:readObject())
+   self.wrote_condition:free()
    self.read_condition = threads.Condition(f:readObject())
+   self.read_condition:free()
 
    -- Lua 5.1 / LuaJIT garbage collection
    if newproxy then
