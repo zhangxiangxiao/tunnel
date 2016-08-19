@@ -529,11 +529,26 @@ function Vector_:toStringAsync()
 end
 
 -- Free the resources allocated by vector
--- TODO (xiang): Deserialize all data
 function Vector_:free()
    self.mutex:free()
    self.inserted_condition:free()
    self.removed_condition:free()
+
+   local status, message = pcall(
+      function ()
+         self.mutex:lock()
+         self.mutex:unlock()
+      end)
+
+   if status == false then
+      -- Cleaning up dangling data
+      self.vector:write(
+         function (vector)
+            for index, value in ipairs(vector) do
+               local storage = self.serialize:load(value)
+            end
+         end)
+   end
 end
 
 -- The index operator
