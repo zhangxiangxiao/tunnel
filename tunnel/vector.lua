@@ -3,12 +3,12 @@ Multi-threaded vector
 Copyright 2016 Xiang Zhang
 --]]
 
-local serialize = require('threads.sharedserialize')
 local tds = require('tds')
 local threads = require('threads')
 local torch = require('torch')
 
 local Atomic = require('tunnel.atomic')
+local Serializer = require('tunnel.serializer')
 
 tunnel = tunnel or {}
 
@@ -22,6 +22,7 @@ local Vector_ = torch.class('tunnel.Vector')
 function Vector_:__init(size_hint)
    self.vector = Atomic(tds.Vec())
    self.size_hint = size_hint or math.huge
+   self.serializer = Serializer()
 
    -- Mutex and conditions for push and pop functions based on size hint
    self.mutex = threads.Mutex()
@@ -41,7 +42,7 @@ end
 function Vector_:insert(...)
    local inserted = nil
    if select('#', ...) == 1 then
-      local storage = serialize.save(select(1, ...))
+      local storage = self.serializer:save(select(1, ...))
       inserted = self.vector:write(
          function (vector)
             vector:insert(storage:string())
@@ -49,7 +50,7 @@ function Vector_:insert(...)
          end)
    else
       local index, value = select(1, ...), select(2, ...)
-      local storage = serialize.save(value)
+      local storage = self.serializer:save(value)
       inserted = self.vector:write(
          function (vector)
             -- When index > #vector + 1, tds.Vec.insert will result in
@@ -70,7 +71,7 @@ end
 function Vector_:insertAsync(...)
    local inserted = nil
    if select('#', ...) == 1 then
-      local storage = serialize.save(select(1, ...))
+      local storage = self.serializer:save(select(1, ...))
       inserted = self.vector:writeAsync(
          function (vector)
             vector:insert(storage:string())
@@ -78,7 +79,7 @@ function Vector_:insertAsync(...)
          end)
    else
       local index, value = select(1, ...), select(2, ...)
-      local storage = serialize.save(value)
+      local storage = self.serializer:save(value)
       inserted = self.vector:writeAsync(
          function (vector)
             -- When index > #vector + 1, tds.Vec.insert will result in
@@ -107,7 +108,7 @@ function Vector_:remove(index)
    if storage_string then
       local storage = torch.CharStorage():string(storage_string)
       self.removed_condition:signal()
-      return serialize.load(storage), true
+      return self.serializer:load(storage), true
    end
 end
 
@@ -123,7 +124,7 @@ function Vector_:removeAsync(index)
    if storage_string then
       local storage = torch.CharStorage():string(storage_string)
       self.removed_condition:signal()
-      return serialize.load(storage), true
+      return self.serializer:load(storage), true
    end
 end
 
@@ -245,7 +246,7 @@ function Vector_:get(index)
       end)
    if storage_string then
       local storage = torch.CharStorage():string(storage_string)
-      return serialize.load(storage), status
+      return self.serializer:retain(storage), status
    else
       return nil, status
    end
@@ -259,7 +260,7 @@ function Vector_:getAsync(index)
       end)
    if storage_string then
       local storage = torch.CharStorage():string(storage_string)
-      return serialize.load(storage), status
+      return self.serializer:retain(storage), status
    else
       return nil, status
    end
@@ -267,12 +268,12 @@ end
 
 -- Set the item
 function Vector_:set(index, value)
-   local storage = serialize.save(value)
+   local storage = self.serializer:save(value)
    local count = self.vector:write(
       function (vector)
          local count = 0
          if index > #vector then
-            local nil_string = serialize.save(nil):string()
+            local nil_string = self.serializer:save(nil):string()
             for i = #vector + 1, index do
                vector[i] = nil_string
             end
@@ -293,12 +294,12 @@ end
 
 -- Set the item asynchronously
 function Vector_:setAsync(index, value)
-   local storage = serialize.save(value)
+   local storage = self.serializer:save(value)
    local count = self.vector:writeAsync(
       function (vector)
          local count = 0
          if index > #vector then
-            local nil_string = serialize.save(nil):string()
+            local nil_string = self.serializer:save(nil):string()
             for i = #vector + 1, index do
                vector[i] = nil_string
             end
@@ -325,7 +326,7 @@ function Vector_:read(index, callback)
          local storage_string = vector[index]
          if storage_string then
             local storage = torch.CharStorage():string(storage_string)
-            value = serialize.load(storage)
+            value = self.serializer:retain(storage)
          end
          return callback(value)
       end)
@@ -339,7 +340,7 @@ function Vector_:readAsync(index, callback)
          local storage_string = vector[index]
          if storage_string then
             local storage = torch.CharStorage():string(storage_string)
-            value = serialize.load(storage)
+            value = self.serializer:retain(storage)
          end
          return callback(value)
       end)
@@ -353,13 +354,13 @@ function Vector_:write(index, callback)
          local storage_string = vector[index]
          if storage_string then
             local storage = torch.CharStorage():string(storage_string)
-            value = serialize.load(storage)
+            value = self.serializer:load(storage)
          end
          local new_value = callback(value)
-         local new_storage = serialize.save(new_value)
+         local new_storage = self.serializer:save(new_value)
          local count = 0
          if index > #vector then
-            local nil_string = serialize.save(nil):string()
+            local nil_string = self.serializer:save(nil):string()
             for i = #vector + 1, index do
                vector[i] = nil_string
             end
@@ -387,13 +388,13 @@ function Vector_:writeAsync(index, callback)
          local storage_string = vector[index]
          if storage_string then
             local storage = torch.CharStorage():string(storage_string)
-            value = serialize.load(storage)
+            value = self.serializer:load(storage)
          end
          local new_value = callback(value)
-         local new_storage = serialize.save(new_value)
+         local new_storage = self.serializer:save(new_value)
          local count = 0
          if index > #vector then
-            local nil_string = serialize.save(nil):string()
+            local nil_string = self.serializer:save(nil):string()
             for i = #vector + 1, index do
                vector[i] = nil_string
             end
@@ -435,8 +436,9 @@ function Vector_:sort(compare)
       function (vector)
          vector:sort(
             function (a, b)
-               return compare(serialize.load(torch.CharStorage():string(a)),
-                              serialize.load(torch.CharStorage():string(b)))
+               return compare(
+                  self.serializer:retain(torch.CharStorage():string(a)),
+                  self.serializer:retain(torch.CharStorage():string(b)))
             end)
          return true
       end)
@@ -448,8 +450,9 @@ function Vector_:sortAsync(compare)
       function (vector)
          vector:sort(
             function (a, b)
-               return compare(serialize.load(torch.CharStorage():string(a)),
-                              serialize.load(torch.CharStorage():string(b)))
+               return compare(
+                  self.serializer:retain(torch.CharStorage():string(a)),
+                  self.serializer:retain(torch.CharStorage():string(b)))
             end)
          return true
       end)
@@ -461,7 +464,10 @@ function Vector_:iterator()
       function (vector)
          local clone = tds.Vec()
          for index, value in ipairs(vector) do
-            clone[index] = value
+            clone[index] =
+               self.serializer:save(
+                  self.serializer:retain(
+                     torch.CharStorage():string(value))):string()
          end
          return clone
       end)
@@ -470,7 +476,7 @@ function Vector_:iterator()
       return function ()
          index = index + 1
          if index <= #clone then
-            return index, serialize.load(
+            return index, self.serializer:load(
                torch.CharStorage():string(clone[index]))
          end
       end, true
@@ -485,7 +491,10 @@ function Vector_:iteratorAsync()
       function (vector)
          local clone = tds.Vec()
          for index, value in ipairs(vector) do
-            clone[index] = value
+            clone[index] =
+               self.serializer:save(
+                  self.serializer:retain(
+                     torch.CharStorage():string(value))):string()
          end
          return clone
       end)
@@ -494,7 +503,7 @@ function Vector_:iteratorAsync()
       return function ()
          index = index + 1
          if index <= #clone then
-            return index, serialize.load(
+            return index, self.serializer:load(
                torch.CharStorage():string(clone[index]))
          end
       end, true
@@ -520,6 +529,7 @@ function Vector_:toStringAsync()
 end
 
 -- Free the resources allocated by vector
+-- TODO (xiang): Deserialize all data
 function Vector_:free()
    self.mutex:free()
    self.inserted_condition:free()
@@ -580,6 +590,8 @@ end
 
 -- Deserialization of this object
 function Vector_:__read(f)
+   self.serializer = Serializer()
+
    self.vector = f:readObject()
    self.size_hint = f:readObject()
    self.mutex = threads.Mutex(f:readObject())
