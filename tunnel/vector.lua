@@ -278,6 +278,10 @@ function Vector_:set(index, value)
                vector[i] = nil_string
             end
             count = index - #vector
+         else
+            -- Load serialized data to remove dangling values
+            local old_value = self.serializer:load(
+               torch.CharStorage():string(vector[index]))
          end
          vector[index] = storage:string()
          return count
@@ -304,6 +308,10 @@ function Vector_:setAsync(index, value)
                vector[i] = nil_string
             end
             count = index - #vector
+         else
+            -- Load serialized data to remove dangly values
+            local old_value = self.serializer:load(
+               torch.CharStorage():string(vector[index]))
          end
          vector[index] = storage:string()
          return count
