@@ -924,16 +924,16 @@ This method is asynchronous getter, a read-only operation. It gets the value at 
 If there are other modification operations, the asynchronous getter will return immediately and `status` will be `nil` in this case. Therefore, the get may not be attempted.
 
 <a name="tunnel.hash.set"></a>
-### `status = hash:set(key, value)` or `hash[key] = value` ###
+### `status, old_value = hash:set(key, value)` or `hash[key] = value` ###
 
 This method is synchronous setter, a modification operation. It sets the value at `key` to be `value`. If `value == nil`, the hash table entry is deleted. If `status == true`, the set operation is successful.
 
 If there are other operations, the synchronous setter will wait for exclusive access. Therefore, the set will always be attempted.
 
-> Warning: due to Lua metatable limitations, if the `__newindex` operator is used such as `hash[key] = value`, make sure `key` is not any data member or any function name of the `tunnel.Hash` data structure. The only data member currently is `hash.hash`, but there is no guarantee that this will not change in the future.
+> Warning: due to Lua metatable limitations, if the `__newindex` operator is used such as `hash[key] = value`, make sure `key` is not any data member or any function name of the `tunnel.Hash` data structure. The data members currently include `hash.hash`, `hash.serializer` and `hash.count`, but there is no guarantee that this will not change in the future.
 
 <a name="tunnel.hash.setasync"></a>
-### `status = hash:setAsync(key, value)` ###
+### `status, old_value = hash:setAsync(key, value)` ###
 
 This method is asynchronous setter, a modification operation. It sets the value at `key` to be `value`. If `value == nil`, the hash table entry is deleted. If `status == true`, the set operation is attempted and successful.
 
@@ -1011,7 +1011,7 @@ This method is asynchronous string conversion, a read-only operation. It returns
 
 If there are other modification operations, the asynchronous string conversion will return immediately. Therefore the string conversion may not be attempted.
 
-Note that becuase the values stored in `hash` are serialized, the string conversion result may not be readable.
+Note that because the values stored in `hash` are serialized, the string conversion result may not be readable.
 
 <a name="tunnel.hash.summary"></a>
 ### Summary ###
