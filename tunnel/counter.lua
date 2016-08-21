@@ -95,4 +95,48 @@ function Counter_:setAsync(value)
       end)
 end
 
+-- Read the value of the counter
+function Counter_:read(callback)
+   return self.count:read(
+      function (count)
+         return callback(count[1])
+      end)
+end
+
+-- Read the value of the counter asynchronously
+function Counter_:readAsync(callback)
+   return self.count:readAsync(
+      function (count)
+         return callback(count[1])
+      end)
+end
+
+-- Write the value of the counter
+function Counter_:write(callback)
+   return self.count:write(
+      function (count)
+         count[1] = callback(count[1])
+         return count[1]
+      end)
+end
+
+-- Write the value of the counter asynchronously
+function Counter_:writeAsync(callback)
+   return self.count:writeAsync(
+      function (count)
+         count[1] = callback(count[1])
+         return count[1]
+      end)
+end
+
+-- Serialization write
+function Counter_:__write(f)
+   f:writeObject(self.count)
+end
+
+-- Serialization read
+function Counter_:__read(f)
+   self.count = f:readObject()
+end
+
 return tunnel.Counter
