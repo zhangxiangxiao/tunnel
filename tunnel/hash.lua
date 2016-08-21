@@ -3,11 +3,11 @@ Multi-threaded hash
 Copyright 2016 Xiang Zhang
 --]]
 
-local serialize = require('threads.sharedserialize')
 local tds = require('tds')
 local torch = require('torch')
 
 local Atomic = require('tunnel.atomic')
+local Serializer = require('tunnel.serializer')
 
 tunnel = tunnel or {}
 
@@ -17,6 +17,14 @@ local Hash_ = torch.class('tunnel.Hash')
 -- Constructor
 function Hash_:__init()
    self.hash = Atomic(tds.Hash())
+   self.serializer = Serializer()
+
+   -- Lua 5.1 / LuaJIT garbage collection
+   if newproxy then
+      self.proxy = newproxy(true)
+      getmetatable(self.proxy).__gc = function() self:__gc() end
+   end
+
    return self
 end
 
@@ -28,10 +36,12 @@ function Hash_:get(key)
       end)
    if storage_string then
       local storage = torch.CharStorage():string(storage_string)
-      return serialize.load(storage), status
+      return self.serializer:retain(storage), status
    else
       return nil, status
    end
+
+   return self
 end
 
 -- Get an item asynchronously
@@ -42,7 +52,7 @@ function Hash_:getAsync(key)
       end)
    if storage_string then
       local storage = torch.CharStorage():string(storage_string)
-      return serialize.load(storage), status
+      return self.serializer:retain(storage), status
    else
       return nil, status
    end
@@ -51,17 +61,27 @@ end
 -- Set an item
 function Hash_:set(key, value)
    if value ~= nil then
-      local storage = serialize.save(value)
+      local storage = self.serializer:save(value)
       return self.hash:write(
          function (hash)
+            local old_value
+            if hash[key] ~= nil then
+               old_value = self.serializer:load(
+                  torch.CharStorage():string(hash[key]))
+            end
             hash[key] = storage:string()
-            return true
+            return true, old_value
          end)
    else
       return self.hash:write(
          function (hash)
+            local old_value
+            if hash[key] ~= nil then
+               old_value = self.serializer:load(
+                  torch.CharStorage():string(hash[key]))
+            end
             hash[key] = nil
-            return true
+            return true, old_value
          end)
    end
 end
@@ -69,17 +89,27 @@ end
 -- Set an item asynchronously
 function Hash_:setAsync(key, value)
    if value ~= nil then
-      local storage = serialize.save(value)
-      return self.hash:write(
+      local storage = self.serializer:save(value)
+      return self.hash:writeAsync(
          function (hash)
+            local old_value
+            if hash[key] ~= nil then
+               old_value = self.serializer:load(
+                  torch.CharStorage():string(hash[key]))
+            end
             hash[key] = storage:string()
-            return true
+            return true, old_value
          end)
    else
-      return self.hash:write(
+      return self.hash:writeAsync(
          function (hash)
+            local old_value
+            if hash[key] ~= nil then
+               old_value = self.serializer:load(
+                  torch.CharStorage():string(hash[key]))
+            end
             hash[key] = nil
-            return true
+            return true, old_value
          end)
    end
 end
@@ -92,7 +122,7 @@ function Hash_:read(key, callback)
          local storage_string = hash[key]
          if storage_string then
             local storage = torch.CharStorage():string(storage_string)
-            value = serialize.load(storage)
+            value = self.serializer:retain(storage)
          end
          return callback(value)
       end)
@@ -106,7 +136,7 @@ function Hash_:readAsync(key, callback)
          local storage_string = hash[key]
          if storage_string then
             local storage = torch.CharStorage():string(storage_string)
-            value = serialize.load(storage)
+            value = self.serializer:retain(storage)
          end
          return callback(value)
       end)
@@ -120,11 +150,11 @@ function Hash_:write(key, callback)
          local storage_string = hash[key]
          if storage_string then
             local storage = torch.CharStorage():string(storage_string)
-            value = serialize.load(storage)
+            value = self.serializer:load(storage)
          end
          local new_value = callback(value)
          if new_value ~= nil then
-            local new_storage = serialize.save(new_value)
+            local new_storage = self.serializer:save(new_value)
             hash[key] = new_storage:string()
          else
             hash[key] = nil
@@ -141,11 +171,11 @@ function Hash_:writeAsync(key, callback)
          local storage_string = hash[key]
          if storage_string then
             local storage = torch.CharStorage():string(storage_string)
-            value = serialize.load(storage)
+            value = self.serializer:load(storage)
          end
          local new_value = callback(value)
          if new_value ~= nil then
-            local new_storage = serialize.save(new_value)
+            local new_storage = self.serializer:save(new_value)
             hash[key] = new_storage:string()
          else
             hash[key] = nil
@@ -176,7 +206,10 @@ function Hash_:iterator()
       function (hash)
          local clone = tds.Hash()
          for key, value in pairs(hash) do
-            clone[key] = value
+            clone[key] =
+               self.serializer:save(
+                  self.serializer:retain(
+                     torch.CharStorage():string(value))):string()
          end
          return clone
       end)
@@ -186,7 +219,7 @@ function Hash_:iterator()
          local key, value = iterator()
          if value ~= nil then
             local storage = torch.CharStorage():string(value)
-            return key, serialize.load(storage)
+            return key, self.serializer:load(storage)
          end
          return key, value
       end, true
@@ -199,7 +232,10 @@ function Hash_:iteratorAsync()
       function (hash)
          local clone = tds.Hash()
          for key, value in pairs(hash) do
-            clone[key] = value
+            clone[key] =
+               self.serializer:save(
+                  self.serializer:retain(
+                     torch.CharStorage():string(value))):string()
          end
          return clone
       end)
@@ -209,7 +245,7 @@ function Hash_:iteratorAsync()
          local key, value = iterator()
          if value ~= nil then
             local storage = torch.CharStorage():string(value)
-            return key, serialize.load(storage)
+            return key, self.serializer:load(storage)
          end
          return key, value
       end, true
@@ -232,6 +268,11 @@ function Hash_:toStringAsync()
       end)
 end
 
+-- Free the resources allocated by hash
+-- TODO (xiang): implement free by counting how many instances are using it
+function Hash_:free()
+end
+
 -- The index operator
 function Hash_:__index(key)
    local method = Hash_[key]
@@ -250,7 +291,7 @@ function Hash_:__newindex(key, value)
       error('Cannot set when key is method name. Use Hash:set(key, value).')
    end
    -- Filter out data members
-   if key == 'hash' then
+   if key == 'hash' or key == 'serializer' or key == 'proxy' then
       rawset(self, key, value)
    else
       self:set(key, value)
@@ -267,6 +308,10 @@ function Hash_:__pairs()
    return self:iterator()
 end
 
+function Hash_:__gc()
+   self:free()
+end
+
 -- Serialization of this object
 function Hash_:__write(f)
    f:writeObject(self.hash)
@@ -275,6 +320,7 @@ end
 -- Deserialization of this object
 function Hash_:__read(f)
    self.hash = f:readObject()
+   self.serializer = Serializer()
 end
 
 -- Return the class, not the metatable

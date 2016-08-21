@@ -62,12 +62,48 @@ function joe:getSetTest()
    async_iterator_block:add(self.printer, self.hash)
    async_iterator_block:run(self:asyncIteratorJob())
 
-   sync_get_block:synchronize()
-   sync_set_block:synchronize()
-   async_get_block:synchronize()
-   async_set_block:synchronize()
-   sync_iterator_block:synchronize()
-   async_iterator_block:synchronize()
+   local status, result = sync_get_block:synchronize()
+   for i, v in ipairs(status) do
+      if v == false then
+         self.printer('Error in sync_get_block', i, unpack(result[i]))
+      end
+   end
+   self.printer('Synchronized with sync_get_block')
+   local status, result = sync_set_block:synchronize()
+   for i, v in ipairs(status) do
+      if v == false then
+         self.printer('Error in sync_set_block', i, unpack(result[i]))
+      end
+   end
+   self.printer('Synchronized with sync_set_block')
+   local status, result = async_get_block:synchronize()
+   for i, v in ipairs(status) do
+      if v == false then
+         self.printer('Error in async_get_block', i, unpack(result[i]))
+      end
+   end
+   self.printer('Synchronized with async_get_block')
+   local status, result = async_set_block:synchronize()
+   for i, v in ipairs(status) do
+      if v == false then
+         self.printer('Error in async_set_block', i, unpack(result[i]))
+      end
+   end
+   self.printer('Synchronized with async_set_block')
+   local status, result = sync_iterator_block:synchronize()
+   for i, v in ipairs(status) do
+      if v == false then
+         self.printer('Error in sync_iterator_block', i, unpack(result[i]))
+      end
+   end
+   self.printer('Synchronized with sync_iterator_block')
+   local status, result = async_iterator_block:synchronize()
+   for i, v in ipairs(status) do
+      if v == false then
+         self.printer('Error in async_iterator_block', i, unpack(result[i]))
+      end
+   end
+   self.printer('Synchronized with async_iterator_block')
 end
 
 function joe:readWriteTest()
@@ -101,12 +137,48 @@ function joe:readWriteTest()
    async_iterator_block:add(self.printer, self.hash)
    async_iterator_block:run(self:asyncIteratorJob())
 
-   sync_read_block:synchronize()
-   sync_write_block:synchronize()
-   async_read_block:synchronize()
-   async_write_block:synchronize()
-   sync_iterator_block:synchronize()
-   async_iterator_block:synchronize()
+   local status, result = sync_read_block:synchronize()
+   for i, v in ipairs(status) do
+      if v == false then
+         self.printer('Error in sync_read_block', i, unpack(result[i]))
+      end
+   end
+   self.printer('Synchronized with sync_read_block')
+   local status, result = sync_write_block:synchronize()
+   for i, v in ipairs(status) do
+      if v == false then
+         self.printer('Error in sync_write_block', i, unpack(result[i]))
+      end
+   end
+   self.printer('Synchronized with sync_write_block')
+   local status, result = async_read_block:synchronize()
+   for i, v in ipairs(status) do
+      if v == false then
+         self.printer('Error in async_read_block', i, unpack(result[i]))
+      end
+   end
+   self.printer('Synchronized with async_read_block')
+   local status, result = async_write_block:synchronize()
+   for i, v in ipairs(status) do
+      if v == false then
+         self.printer('Error in async_write_block', i, unpack(result[i]))
+      end
+   end
+   self.printer('Synchronized with async_write_block')
+   local status, result = sync_iterator_block:synchronize()
+   for i, v in ipairs(status) do
+      if v == false then
+         self.printer('Error in sync_iterator_block', i, unpack(result[i]))
+      end
+   end
+   self.printer('Synchronized with sync_iterator_block')
+   local status, result = async_iterator_block:synchronize()
+   for i, v in ipairs(status) do
+      if v == false then
+         self.printer('Error in async_iterator_block', i, unpack(result[i]))
+      end
+   end
+   self.printer('Synchronized with async_iterator_block')
 end
 
 function joe:syncGetJob()
@@ -122,6 +194,7 @@ function joe:syncGetJob()
          printer('sync_get', __threadid, i, key, tostring(value))
          ffi.C.sleep(2)
       end
+      printer('sync_get', __threadid, 'exit')
    end
 end
 
@@ -139,6 +212,7 @@ function joe:syncSetJob()
          printer('sync_set', __threadid, i, key, value)
          ffi.C.sleep(1)
       end
+      printer('sync_set', __threadid, 'exit')
    end
 end
 
@@ -159,6 +233,7 @@ function joe:asyncGetJob()
          end
          ffi.C.sleep(1)
       end
+      printer('async_get', __threadid, 'exit')
    end
 end
 
@@ -172,14 +247,15 @@ function joe:asyncSetJob()
       for i = 1, 60 do
          local key = tostring(math.random(100))
          local value = 20000 + __threadid * 1000 + i
-         local status = hash:setAsync(key, value)
+         local status, old_value = hash:setAsync(key, value)
          if status == true then
-            printer('async_set', __threadid, i, key, value)
+            printer('async_set', __threadid, i, key, value, old_value)
          else
             printer('async_set', __threadid, i, key, 'blocked')
          end
          ffi.C.sleep(1)
       end
+      printer('async_set', __threadid, 'exit')
    end
 end
 
@@ -201,6 +277,7 @@ function joe:syncReadJob()
          end
          ffi.C.sleep(1)
       end
+      printer('sync_read', __threadid, 'exit')
    end
 end
 
@@ -223,6 +300,7 @@ function joe:syncWriteJob()
          end
          ffi.C.sleep(1)
       end
+      printer('sync_write', __threadid, 'exit')
    end
 end
 
@@ -244,6 +322,7 @@ function joe:asyncReadJob()
          end
          ffi.C.sleep(1)
       end
+      printer('async_read', __threadid, 'exit')
    end
 end
 
@@ -266,6 +345,7 @@ function joe:asyncWriteJob()
          end
          ffi.C.sleep(1)
       end
+      printer('async_write', __threadid, 'exit')
    end
 end
 
@@ -279,6 +359,7 @@ function joe:syncIteratorJob()
          end
          ffi.C.sleep(12)
       end
+      printer('sync_iterator', __threadid, 'exit')
    end
 end
 
@@ -297,6 +378,7 @@ function joe:asyncIteratorJob()
          end
          ffi.C.sleep(12)
       end
+      printer('async_iterator', __threadid, 'exit')
    end
 end
 
