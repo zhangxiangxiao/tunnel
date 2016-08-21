@@ -77,7 +77,7 @@ end
 
 -- Set the value of the counter
 function Counter_:set(value)
-   return self.counter:write(
+   return self.count:write(
       function (count)
          local old_value = count[1]
          count[1] = value
@@ -87,7 +87,7 @@ end
 
 -- Set the value of the counter asynchronously
 function Counter_:setAsync(value)
-   return self.counter:writeAsync(
+   return self.count:writeAsync(
       function (count)
          local old_value = count[1]
          count[1] = value

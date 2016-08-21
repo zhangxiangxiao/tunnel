@@ -3,8 +3,9 @@ Unittest for hash
 Copyright 2016 Xiang Zhang
 --]]
 
-local Block = require('tunnel.block')
 local Hash = require('tunnel.hash')
+
+local Block = require('tunnel.block')
 local Printer = require('tunnel.printer')
 
 -- A Logic Named Joe
@@ -187,7 +188,7 @@ function joe:syncGetJob()
       local math = require('math')
       local os = require('os')
       ffi.cdef('unsigned int sleep(unsigned int seconds);')
-      math.randomseed(os.time() + 20000 + __threadid *1000)
+      math.randomseed(os.time() + 20000 + __threadid * 1000)
       for i = 1, 30 do
          local key = tostring(math.random(100))
          local value = hash[key]
