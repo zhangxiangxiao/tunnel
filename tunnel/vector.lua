@@ -269,9 +269,10 @@ end
 -- Set the item
 function Vector_:set(index, value)
    local storage = self.serializer:save(value)
-   local count = self.vector:write(
+   local count, old_value = self.vector:write(
       function (vector)
          local count = 0
+         local old_value
          if index > #vector then
             local nil_string = self.serializer:save(nil):string()
             for i = #vector + 1, index do
@@ -280,28 +281,29 @@ function Vector_:set(index, value)
             count = index - #vector
          else
             -- Load serialized data to remove dangling values
-            local old_value = self.serializer:load(
+            old_value = self.serializer:load(
                torch.CharStorage():string(vector[index]))
          end
          vector[index] = storage:string()
-         return count
+         return count, old_value
       end)
    if count == nil then
-      return nil
+      return nil, old_value
    else
       for i = 1, count do
          self.inserted_condition:signal()
       end
-      return true
+      return true, old_value
    end
 end
 
 -- Set the item asynchronously
 function Vector_:setAsync(index, value)
    local storage = self.serializer:save(value)
-   local count = self.vector:writeAsync(
+   local count, old_value = self.vector:writeAsync(
       function (vector)
          local count = 0
+         local old_value
          if index > #vector then
             local nil_string = self.serializer:save(nil):string()
             for i = #vector + 1, index do
@@ -309,20 +311,20 @@ function Vector_:setAsync(index, value)
             end
             count = index - #vector
          else
-            -- Load serialized data to remove dangly values
-            local old_value = self.serializer:load(
+            -- Load serialized data to remove dangling values
+            old_value = self.serializer:load(
                torch.CharStorage():string(vector[index]))
          end
          vector[index] = storage:string()
-         return count
+         return count, old_value
       end)
    if count == nil then
-      return nil
+      return nil, old_value
    else
       for i = 1, count do
          self.inserted_condition:signal()
       end
-      return true
+      return true, old_value
    end
 end
 

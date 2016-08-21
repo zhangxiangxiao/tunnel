@@ -7,6 +7,7 @@ tunnel = tunnel or {}
 
 require('tunnel.atomic')
 require('tunnel.block')
+require('tunnel.counter')
 require('tunnel.hash')
 require('tunnel.printer')
 require('tunnel.serializer')

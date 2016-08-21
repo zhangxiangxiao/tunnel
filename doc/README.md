@@ -728,14 +728,14 @@ This method is asynchronous getter, a read-only operation. It gets the value at 
 If there are other modification operations, the asynchronous getter will return immediately and `status` will be `nil` in this case. Therefore, the get may not be attempted.
 
 <a name="tunnel.vector.set"></a>
-### `status = vector:set(index, value)` or `vector[index] = value` ###
+### `status, old_value = vector:set(index, value)` or `vector[index] = value` ###
 
 This method is synchronous setter, a modification operation. It sets the value at `index` to be `value`, resizing the vector to have size at least `index` if necessary by filling it with `nil` values. Note that when `value == nil`, it means to set the value at `index` to nil rather than to delete the value. If `status == true`, the set operation is successful.
 
 If there are other operations, the synchronous setter will wait for exclusive access. Therefore, the set will always be attempted.
 
 <a name="tunnel.vector.setasync"></a>
-### `status = vector:setAsync(index, value)` ###
+### `status, old_value = vector:setAsync(index, value)` ###
 
 This method is asynchronous setter, a modification operation. It sets the value at `index` to be `value`, resizing the vector to have size at least `index` if necessary by filling it with `nil` values. Note that when `value == nil`, it means to set the value at `index` to nil rather than to delete the value. If `status == true`, the set operation is attempted and successful.
 

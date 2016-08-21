@@ -25,6 +25,7 @@ build = {
       ['tunnel.init'] = "tunnel/init.lua",
       ['tunnel.atomic'] = 'tunnel/atomic.lua',
       ['tunnel.block'] = 'tunnel/block.lua',
+      ['tunnel.counter'] = 'tunnel/counter.lua',
       ['tunnel.hash'] = 'tunnel/hash.lua',
       ['tunnel.printer'] = 'tunnel/printer.lua',
       ['tunnel.serializer'] = 'tunnel/serializer.lua',

@@ -969,15 +969,16 @@ function joe:asyncSetJob()
       local print_mutex = threads.Mutex(print_mutex_id)
       for i = 1, 60 do
          local index = math.random(10)
-         local value = 50000 + __threadid * 1000 + i
-         local status = vector:setAsync(index, value)
+         local value = 60000 + __threadid * 1000 + i
+         local status, old_value = vector:setAsync(index, value)
          if status == true then
             print_mutex:lock()
-            print('async_set', __threadid, i, index, value)
+            print('async_set', __threadid, i, index, value, old_value)
             print_mutex:unlock()
          else
             print_mutex:lock()
-            print('async_set', __threadid, i, index, value, 'blocked')
+            print(
+               'async_set', __threadid, i, index, value, old_value, 'blocked')
             print_mutex:unlock()
          end
          ffi.C.sleep(1)
