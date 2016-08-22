@@ -7,6 +7,7 @@ local tds = require('tds')
 local torch = require('torch')
 
 local Atomic = require('tunnel.atomic')
+local Counter = require('tunnel.counter')
 local Serializer = require('tunnel.serializer')
 
 tunnel = tunnel or {}
@@ -18,6 +19,7 @@ local Hash_ = torch.class('tunnel.Hash')
 function Hash_:__init()
    self.hash = Atomic(tds.Hash())
    self.serializer = Serializer()
+   self.counter = Counter(1)
 
    -- Lua 5.1 / LuaJIT garbage collection
    if newproxy then
@@ -269,8 +271,16 @@ function Hash_:toStringAsync()
 end
 
 -- Free the resources allocated by hash
--- TODO (xiang): implement free by counting how many instances are using it
 function Hash_:free()
+   local value = self.counter:decrease()
+   if value == 0 then
+      self.hash:write(
+         function (hash)
+            for key, value in pairs(hash) do
+               self.serializer:load(torch.CharStorage():string(value))
+            end
+         end)
+   end
 end
 
 -- The index operator
@@ -291,7 +301,8 @@ function Hash_:__newindex(key, value)
       error('Cannot set when key is method name. Use Hash:set(key, value).')
    end
    -- Filter out data members
-   if key == 'hash' or key == 'serializer' or key == 'proxy' then
+   if key == 'hash' or key == 'serializer' or key == 'proxy'
+   or key == 'counter' then
       rawset(self, key, value)
    else
       self:set(key, value)
@@ -314,12 +325,15 @@ end
 
 -- Serialization of this object
 function Hash_:__write(f)
+   self.counter:increase(1)
    f:writeObject(self.hash)
+   f:writeObject(self.counter)
 end
 
 -- Deserialization of this object
 function Hash_:__read(f)
    self.hash = f:readObject()
+   self.counter = f:readObject()
    self.serializer = Serializer()
 end
 

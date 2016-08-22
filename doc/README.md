@@ -1048,7 +1048,7 @@ This method is synchronous setter, a modification operation. It sets the value a
 
 If there are other operations, the synchronous setter will wait for exclusive access. Therefore, the set will always be attempted.
 
-> Warning: due to Lua metatable limitations, if the `__newindex` operator is used such as `hash[key] = value`, make sure `key` is not any data member or any function name of the `tunnel.Hash` data structure. The data members currently include `hash.hash`, `hash.serializer` and `hash.count`, but there is no guarantee that this will not change in the future.
+> Warning: due to Lua metatable limitations, if the `__newindex` operator is used such as `hash[key] = value`, make sure `key` is not any data member or any function name of the `tunnel.Hash` data structure. The data members currently include `hash.hash`, `hash.serializer`, `hash.count` and `hash.proxy`, but there is no guarantee that this will not change in the future.
 
 <a name="tunnel.hash.setasync"></a>
 ### `status, old_value = hash:setAsync(key, value)` ###
