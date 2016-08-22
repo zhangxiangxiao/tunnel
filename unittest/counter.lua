@@ -69,10 +69,30 @@ function joe:counterTest()
    async_get_block:add(self.printer, self.counter)
    async_get_block:run(self.asyncGetJob())
 
-   -- 2 asynchronous get threads
+   -- 2 asynchronous set threads
    local async_set_block = Block(2)
    async_set_block:add(self.printer, self.counter)
    async_set_block:run(self.asyncSetJob())
+
+   -- 2 synchronous read threads
+   local sync_read_block = Block(2)
+   sync_read_block:add(self.printer, self.counter)
+   sync_read_block:run(self.syncReadJob())
+
+   -- 2 synchronous write threads
+   local sync_write_block = Block(2)
+   sync_write_block:add(self.printer, self.counter)
+   sync_write_block:run(self.syncWriteJob())
+
+   -- 2 asynchronous read threads
+   local async_read_block = Block(2)
+   async_read_block:add(self.printer, self.counter)
+   async_read_block:run(self.asyncReadJob())
+
+   -- 2 asynchronous write threads
+   local async_write_block = Block(2)
+   async_write_block:add(self.printer, self.counter)
+   async_write_block:run(self.asyncWriteJob())
 end
 
 function joe:syncIncreaseJob()
@@ -85,7 +105,7 @@ function joe:syncIncreaseJob()
       for i = 1, 60 do
          local step = math.random(10)
          local value = counter:increase(step)
-         printer('sync_increase', __threadid, step, value)
+         printer('sync_increase', __threadid, i, step, value)
          ffi.C.sleep(1)
       end
    end
@@ -101,7 +121,7 @@ function joe:syncDecreaseJob()
       for i = 1, 60 do
          local step = math.random(10)
          local value = counter:decrease(step)
-         printer('sync_decrease', __threadid, step, value)
+         printer('sync_decrease', __threadid, i, step, value)
          ffi.C.sleep(1)
       end
    end
@@ -117,7 +137,7 @@ function joe:asyncIncreaseJob()
       for i = 1, 60 do
          local step = math.random(10)
          local value = counter:increaseAsync(step)
-         printer('async_increase', __threadid, step, value)
+         printer('async_increase', __threadid, i, step, value)
          ffi.C.sleep(1)
       end
    end
@@ -133,7 +153,7 @@ function joe:asyncDecreaseJob()
       for i = 1, 60 do
          local step = math.random(10)
          local value = counter:decreaseAsync(step)
-         printer('async_decrease', __threadid, step, value)
+         printer('async_decrease', __threadid, i, step, value)
          ffi.C.sleep(1)
       end
    end
@@ -145,7 +165,7 @@ function joe:syncGetJob()
       ffi.cdef('unsigned int sleep(unsigned int seconds);')
       for i = 1, 60 do
          local value = counter:get()
-         printer('sync_get', __threadid, value)
+         printer('sync_get', __threadid, i, value)
          ffi.C.sleep(1)
       end
    end
@@ -161,7 +181,7 @@ function joe:syncSetJob()
       for i = 1, 60 do
          local value = math.random(10)
          value = counter:set(value)
-         printer('sync_set', __threadid, value)
+         printer('sync_set', __threadid, i, value)
          ffi.C.sleep(1)
       end
    end
@@ -173,7 +193,7 @@ function joe:asyncGetJob()
       ffi.cdef('unsigned int sleep(unsigned int seconds);')
       for i = 1, 60 do
          local value = counter:getAsync()
-         printer('async_get', __threadid, value)
+         printer('async_get', __threadid, i, value)
          ffi.C.sleep(1)
       end
    end
@@ -189,7 +209,63 @@ function joe:asyncSetJob()
       for i = 1, 60 do
          local value = math.random(10)
          value = counter:setAsync(value)
-         printer('async_set', __threadid, value)
+         printer('async_set', __threadid, i, value)
+         ffi.C.sleep(1)
+      end
+   end
+end
+
+function joe:syncReadJob()
+   return function (printer, counter)
+      local ffi = require('ffi')
+      ffi.cdef('unsigned int sleep(unsigned int seconds);')
+      for i = 1, 60 do
+         local value = counter:read(function(value) return value end)
+         printer('sync_read', __threadid, i, value)
+         ffi.C.sleep(1)
+      end
+   end
+end
+
+function joe:asyncReadJob()
+   return function (printer, counter)
+      local ffi = require('ffi')
+      ffi.cdef('unsigned int sleep(unsigned int seconds);')
+      for i = 1, 60 do
+         local value = counter:readAsync(function(value) return value end)
+         printer('async_read', __threadid, i, value)
+         ffi.C.sleep(1)
+      end
+   end
+end
+
+function joe:syncWriteJob()
+   return function (printer, counter)
+      local ffi = require('ffi')
+      local math = require('math')
+      local os = require('os')
+      ffi.cdef('unsigned int sleep(unsigned int seconds);')
+      math.randomseed(os.time() + 70000 + __threadid * 1000)
+      for i = 1, 60 do
+         local value = math.random(10)
+         value = counter:write(function (old_value) return value end)
+         printer('sync_write', __threadid, i, value)
+         ffi.C.sleep(1)
+      end
+   end
+end
+
+function joe:asyncWriteJob()
+   return function (printer, counter)
+      local ffi = require('ffi')
+      local math = require('math')
+      local os = require('os')
+      ffi.cdef('unsigned int sleep(unsigned int seconds);')
+      math.randomseed(os.time() + 80000 + __threadid * 1000)
+      for i = 1, 60 do
+         local value = math.random(10)
+         value = counter:writeAsync(function (old_value) return value end)
+         printer('async_write', __threadid, i, value)
          ffi.C.sleep(1)
       end
    end
