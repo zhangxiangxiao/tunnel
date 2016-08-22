@@ -6,6 +6,7 @@ Tunnel is a data driven framework for distributed computing in Torch7. It consis
 * [`tunnel.Share`](#tunnel.share): a shared object wrapper. It can be used to wrap a data object to ensure shared serialization when transferring between threads.
 * [`tunnel.Atomic`](#tunnel.atomic): an atomic object wrapper. It can be used to wrap a data object using the [reader-writer lock model](https://en.wikipedia.org/wiki/Readers%E2%80%93writers_problem), with both synchronous and asynchronous interface.
 * [`tunnel.Printer`](#tunnel.printer): an atomic printer to standard output.
+* [`tunnel.Counter`](#tunnel.counter): an atomic counter.
 * [`tunnel.Vector`](#tunnel.vector): an synchronized vector data structure that can be used as an array, a queue, or a stack. It has both synchronous and asynchronous interface.
 * [`tunnel.Hash`](#tunnel.hash): a synchronized hash table. It has both synchronous and asynchronous interface.
 * [`tunnel.Serializer`](#tunnel.serializer): shared-serialization class. Do not use it unless you know what you are doing.
@@ -527,6 +528,123 @@ is the same as
 printer:print(...)
 ```
 
+<a name="tunnel.counter"></a>
+## `tunnel.Counter` ##
+
+`tunnel.Counter` is a class that offers atomic counter functionality. Thread-safety is achieved by the fact that only one thread can change the counter at the same time. To create an atomic counter, simply call its constructor
+
+```lua
+counter = tunnel.Counter(value)
+```
+
+The construct accept one argument `value` that represents the initial value of the counter. The default `value` is 0.
+
+<a name="tunnel.counter.increase"></a>
+### `value = counter:increase(step)` ###
+
+This method is synchronous increase, a modification operation. It adds the internal counting value by `step`. If `step` is `nil`, it is assumed to be `1`. If the increment is successful, the newly increased counting value will be returned.
+
+If there are other operations accessing the counter, the synchronous increase will wait for exclusive access. Therefore, the increment will always be attempted.
+
+<a name="tunnel.counter.increaseasync"></a>
+### `value = counter:increaseAsync(step)` ###
+
+This method is asynchronous increase, a modification operation. It adds the internal counting value by `step`. If `step` is `nil`, it is assumed to be `1`. If the increment is successful, the newly increased counting value will be returned.
+
+If there are other operations accessing the counter, the asynchronous increase will return immediately, in which case `value` is `nil`. Therefore, the increment may not be attempted.
+
+<a name="tunnel.counter.decrease"></a>
+### `value = counter:decrease(step)` ###
+
+This method is synchronous decrease, a modification operation. It subtracts the internal counting value by `step`. If `step` is `nil`, it is assumed to be `1`. If the decrement is successful, the newly decreased counting value will be returned.
+
+If there are other operations accessing the counter, the synchronous decrease will wait for exclusive access. Therefore, the increment will always be attempted.
+
+<a name="tunnel.counter.decreaseasync"></a>
+### `value = counter:decreaseAsync(step)` ###
+
+This method is asynchronous decrease, a modification operation. It subtracts the internal counting value by `step`. If `step` is `nil`, it is assumed to be `1`. If the decrement is successful, the newly decreased counting value will be returned.
+
+If there are other operations accessing the counter, the asynchronous decrease will return immediately, in which case `value` is `nil`. Therefore, the increment may not be attempted.
+
+> Note: negative `step` values are accepted in all increase and descrease functions. Therefore, `counter:increase(step)` is equivalent to `counter:decrease(-step)`.
+
+<a name="tunnel.counter.get"></a>
+### `value = counter:get()` ###
+
+This method is synchronous get, a read-only operation. It reads the current counting value and return it.
+
+If there are other modification operations accessing the counter, the synchronous get will wait for access. Therefore, the synchronous get will always be attempted.
+
+<a name="tunnel.counter.getasync"></a>
+### `value = counter:getAsync()` ###
+
+This method is asynchronous get, a read-only operation. It reads the current counting value and return it.
+
+If there are other modification operations accessing the counter, the asynchronous get will return immediately. Therefore, the asynchronous get may not be be attempted.
+
+<a name="tunnel.counter.set"></a>
+### `old_value = counter:set(value)` ###
+
+This method is synchronous set, a modification operation. It sets the current counting value and return the old value.
+
+If there are other operations accessing the counter, the synchronous set will wait for exclusive access. Therefore, the synchronous get will always be attempted.
+
+<a name="tunnel.counter.setasync"></a>
+### `old_value = counter:setAsync(value)` ###
+
+This method is asynchronous set, a modification operation. It sets the current counting value and return the old value.
+
+If there are other operations accessing the counter, the asynchronous set will return immediately, in which case `old_value` will be `nil`. Therefore, the asynchronous get may not be be attempted.
+
+<a name="tunnel.counter.read"></a>
+### `result = counter:read(callback)` ###
+
+This method is synchronous read, a read-only operation. It gets the current counting value and calls `callback(value)`. The result of `callback` is returned. While `callback` is executing, no modification operation is permitted so as to ensure that the value is not modified during `callback`.
+
+If there are other modification operations, the synchronous read will wait for them to end. Therefore, the read will always be attempted.
+
+<a name="tunnel.counter.readAsync"></a>
+### `result = counter:readAsync(callback)` ###
+
+This method is asynchronous read, a read-only operation. It gets the current couting value and calls `callback(value)`. The result of `callback` is returned. While `callback` is executing, no modification operation is permitted so as to ensure that the value is not modified during `callback`.
+
+If there are other modification operations, the asynchronous read will return immediately without executing `callback`. Therefore, the read may not be attempted.
+
+<a name="tunnel.counter.write"></a>
+### `value = counter:write(callback)` ###
+
+This method is synchronous write, a modification operation. It gets the current counting value and calls `callback(value)`, then put `callback`'s returned value as the new counting value. The new value is returned. While `callback` is executing, neither modification nor read-only operation is permitted so as to ensure that the value can be modified during `callback`.
+
+If there are other operations, the synchronous write will wait for exclusive access. Therefore, the write will always be attempted.
+
+<a name="tunnel.counter.writeasync"></a>
+### `value = counter:writeAsync(callback)` ###
+
+This method is asynchronous write, a modification operation. It gets the current counting value and calls `callback(value)`, then put `callback`'s returned value as the new counting value. The new value is returned. While `callback` is executing, neither modification nor read-only operation is permitted so as to ensure that the value can be modified during `callback`.
+
+If there are other operations, the asynchronous write will return immediately without executing `callback` and `value` will be `nil` in this case. Therefore, the write may not be attempted.
+
+<a name="tunnel.counter.summary"></a>
+### Summary ###
+
+The following table summarizes the compatibility and behavior of these functions.
+
+|                  |     Type     | Other Read-only | Other Modification | Incompatibility Behavior |
+|------------------|:------------:|:---------------:|:------------------:|--------------------------|
+| `increase`       | Modification |   Incompatible  |    Incompatible    | Wait for access          |
+| `increaseAsync`  | Modification |   Incompatible  |    Incompatible    | Return immediately       |
+| `decrease`       | Modification |   Incomptable   |    Incompatible    | Wait for access          |
+| `decreaseAsync`  | Modification |   Incompatible  |    Incompatible    | Return immediately       |
+| `get`            | Read-only    |    Compatible   |    Incompatible    | Wait for access          |
+| `getAsync`       | Read-only    |    Compatible   |    Incompatible    | Return immediately       |
+| `set`            | Modification |   Incompatible  |    Incompatible    | Wait for access          |
+| `setAsync`       | Modification |   Incompatible  |    Incompatible    | Return immediately       |
+| `read`           | Read-only    |    Compatible   |    Incompatible    | Wait for access          |
+| `readAsync`      | Read-only    |    Compatible   |    Incompatible    | Return immediately       |
+| `write`          | Modification |   Incompatible  |    Incompatible    | Wait for access          |
+| `writeAsync`     | Modification |   Incompatible  |    Incompatible    | Return immediately       |
+
 <a name="tunnel.vector"></a>
 ## `tunnel.Vector` ##
 
@@ -541,7 +659,7 @@ In short, any value you store in `tunnel.Vector` is automatically shared across 
 
 To create a vector, simply call
 
-```
+```lua
 vector = tunnel.Vector(size_hint)
 ```
 
