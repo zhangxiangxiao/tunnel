@@ -8,6 +8,7 @@ local threads = require('threads')
 local torch = require('torch')
 
 local Atomic = require('tunnel.atomic')
+local Counter = require('tunnel.counter')
 local Serializer = require('tunnel.serializer')
 
 tunnel = tunnel or {}
@@ -22,6 +23,7 @@ local Vector_ = torch.class('tunnel.Vector')
 function Vector_:__init(size_hint)
    self.vector = Atomic(tds.Vec())
    self.size_hint = size_hint or math.huge
+   self.counter = Counter(1)
    self.serializer = Serializer()
 
    -- Mutex and conditions for push and pop functions based on size hint
@@ -544,13 +546,9 @@ function Vector_:free()
    self.inserted_condition:free()
    self.removed_condition:free()
 
-   local status, message = pcall(
-      function ()
-         self.mutex:lock()
-         self.mutex:unlock()
-      end)
-
-   if status == false then
+   -- Clean up the memory
+   local value = self.counter:decrease()
+   if value == 0 then
       -- Cleaning up dangling data
       self.vector:write(
          function (vector)
@@ -606,8 +604,10 @@ end
 
 -- Serialization of this object
 function Vector_:__write(f)
+   self.counter:increase(1)
    f:writeObject(self.vector)
    f:writeObject(self.size_hint)
+   f:writeObject(self.counter)
 
    local mutex = threads.Mutex(self.mutex:id())
    f:writeObject(self.mutex:id())
@@ -623,6 +623,7 @@ function Vector_:__read(f)
 
    self.vector = f:readObject()
    self.size_hint = f:readObject()
+   self.counter = f:readObject()
 
    self.mutex = threads.Mutex(f:readObject())
    self.mutex:free()
