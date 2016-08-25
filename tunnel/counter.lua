@@ -32,9 +32,10 @@ end
 -- Increase the counter asynchronously
 -- step: the step to increase. Default is 1.
 function Counter_:increaseAsync(step)
+   local step = step or 1
    return self.count:writeAsync(
       function (count)
-         count:add(step or 1)
+         count:add(step)
          return count[1]
       end)
 end
@@ -42,9 +43,10 @@ end
 -- Decrease the counter
 -- step: the step to decrease. Default is 1.
 function Counter_:decrease(step)
+   local step = step or 1
    return self.count:write(
       function (count)
-         count:add(-step or -1)
+         count:add(step)
          return count[1]
       end)
 end
