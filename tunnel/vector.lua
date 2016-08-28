@@ -592,6 +592,11 @@ function Vector_:__pairs()
    return self:__ipairs()
 end
 
+-- Length of the vector
+function Vector_:__len()
+   return self:size()
+end
+
 -- This works for Lua 5.2. For Lua 5.1 / LuaJIT we depend on self.proxy.
 function Vector_:__gc()
    self:free()

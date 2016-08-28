@@ -90,4 +90,8 @@ function Block_:runJob(index, callback)
    end
 end
 
+function Block_:__len()
+   return self.size
+end
+
 return tunnel.Block

@@ -319,6 +319,11 @@ function Hash_:__pairs()
    return self:iterator()
 end
 
+-- Length of the hash
+function Hash_:__len()
+   return self:size()
+end
+
 function Hash_:__gc()
    self:free()
 end

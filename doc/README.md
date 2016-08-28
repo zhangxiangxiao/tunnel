@@ -22,7 +22,7 @@ All of these classes will be available if you execute `require('tunnel')` in you
 block = tunnel.Block(size, callback)
 ```
 
-in which `size` is the number of threads for the threads, and `callback` is a function that is executed when these threads are initialized. The purpose of `callback` is to `require` some packages before starting executing the threads, since for some packages transferring data between threads is not possible unless you require them beforehand.
+in which `size` is the number of threads for the threads, and `callback` is a function that is executed when these threads are initialized. The purpose of `callback` is to `require` some packages before starting executing the threads, since for some packages transferring data between threads is not possible unless you require them beforehand. You can query `block.size` or `#block` to get the size of the block.
 
 One such example is the `nn` package
 
@@ -43,7 +43,7 @@ Link the thread block with the data objects in the argument. These data objects 
 <a name="tunnel.block.run"></a>
 ### `run_id = block:run(callback)` ###
 
-Send the `callback` function to each thread and execute it. The `callback` function should accept the data structures in the order when `block:add(data_1, data_2, ...)` was executed. You can send multiple callbacks to each thread by calling `block:run(callback)` multiple times and they will be executed in order inside each thread.
+Send the `callback` function to each thread and execute it. The `callback` function should accept the data structures in the order when `block:add(data_1, data_2, ...)` was executed. You can send multiple callbvacks to each thread by calling `block:run(callback)` multiple times and they will be executed in order inside each thread.
 
 `run_id = block:run(callback)` immediately returns when it sends the callback to the threads. The return value is an id for the current callback that you can use in [`block:getResult()`](#tunnel.block.getresult) to obtain the execution results and status later. The id is simply a counting number of how many callbacks the block has received so far.
 
@@ -537,7 +537,45 @@ printer:print(...)
 counter = tunnel.Counter(value)
 ```
 
-The construct accept one argument `value` that represents the initial value of the counter. The default `value` is 0.
+The construct accept one argument `value` that represents the initial value of the counter. The default `value` is 0. Here is an example of using the increasing functionality of `tunnel.Counter`:
+
+```lua
+job = function (printer, counter)
+   for i = 1, 6 do
+      local value = counter:increase()
+      printer('Counter increased', __threadid, i, value)
+   end
+end
+
+printer = tunnel.Printer()
+counter = tunnel.Counter()
+block = tunnel.Block(3)
+block:add(printer, counter)
+block:run(job)
+```
+
+One possible output looks like this
+
+```
+Counter increased       1       1       1
+Counter increased       1       2       2
+Counter increased       1       3       3
+Counter increased       1       4       4
+Counter increased       2       1       5
+Counter increased       2       2       6
+Counter increased       2       3       7
+Counter increased       1       5       8
+Counter increased       1       6       9
+Counter increased       2       4       10
+Counter increased       2       5       11
+Counter increased       3       1       12
+Counter increased       3       2       13
+Counter increased       3       3       14
+Counter increased       2       6       15
+Counter increased       3       4       16
+Counter increased       3       5       17
+Counter increased       3       6       18
+```
 
 <a name="tunnel.counter.increase"></a>
 ### `value = counter:increase(step)` ###
@@ -1086,7 +1124,7 @@ This method is asynchronous write, a modification operation. It gets the value a
 If there are other operations, the asynchronous write will return immediately without executing `callback` and `status` will be `nil` in this case. Therefore, the write may not be attempted.
 
 <a name="tunnel.hash.size"></a>
-### `size = hash:size()` ###
+### `size = hash:size()` or `size = #hash` ###
 
 This method is synchronous size property, a read-only operation. It gets the size of the hash. If `size ~= nil`, the size property function is successful.
 
