@@ -9,6 +9,7 @@ Tunnel is a data driven framework for distributed computing in Torch7. It consis
 * [`tunnel.Counter`](#tunnel.counter): an atomic counter.
 * [`tunnel.Vector`](#tunnel.vector): an synchronized vector data structure that can be used as an array, a queue, or a stack. It has both synchronous and asynchronous interface.
 * [`tunnel.Hash`](#tunnel.hash): a synchronized hash table. It has both synchronous and asynchronous interface.
+* [`tunnel.Plural`](#tunnel.plural): a wrapper for multiple homogeneous data structures. It has shortcuts like [`tunnel.Counters`](#tunnel.counters), [`tunnel.Hashes`](#tunnel.hashes) and [`tunnel.Vectors`](#tunnel.vectors).
 * [`tunnel.Serializer`](#tunnel.serializer): shared-serialization class. Do not use it unless you know what you are doing.
 
 All of these classes will be available if you execute `require('tunnel')` in your program.
@@ -1190,6 +1191,79 @@ The following is a table summarizing all the functions in `tunnel.Hash` and thei
 | `iteratorAsync`  | Read-only    |    Compatible   |    Incompatible    | Return immediately       |
 | `toString`       | Read-only    |    Compatible   |    Incompatible    | Wait for access          |
 | `toStringAsync`  | Read-only    |    Compatible   |    Incompatible    | Return immediately       |
+
+<a name="tunnel.plural"></a>
+## `tunnel.Plural` ##
+
+`tunnel.Plural` is a class that can wrap multiple homogeneous data structures together. To create a plural data structure, simply call
+
+```lua
+plural = tunnel.Plural(size, callback, ...)
+```
+
+Then, `plural` will be a data structure that contains `size` of object constructed by calling `callback(...)`. The following is an example using `tunnel.Plural` to communicate with multiple threads separately from the main thread
+
+```lua
+job = function (printer, counter, vectors)
+   local id = counter:increase()
+   local message = vectors[id]:popBack()
+   printer(id, message)
+end
+
+printer = tunnel.Printer()
+counter = tunnel.Counter()
+vectors = tunnel.Plural(3, tunnel.Vector, 5)
+block = tunnel.Block(3)
+block:add(printer, counter, vectors)
+block:run(job)
+
+vectors:doAll(
+   function (index, vector)
+      vector:pushBack('message #'..index)
+   end)
+```
+
+The output looks like the following
+
+```
+1       message #1
+2       message #2
+3       message #3
+```
+
+There are shortcuts such as [`tunnel.Counters`](#tunnel.counters), [`tunnel.Hashes`](#tunnel.hashes) and [`tunnel.Vectors`](#tunnel.vectors). You can use them to create the corresponding data structures as well.
+
+<a name="tunnel.plural.doall"></a>
+### `plural:doAll(callback)` ###
+
+Loop over all the data structures and execute `ret[index] = callback(index, data[index])` on them. The table `ret` containing returned values of `callback` is returned.
+
+<a name="tunnel.plural.get"></a>
+### `data = plural:get(index)` or `data = plural[i]` ###
+
+Get the data structure at `index` in `plural`.
+
+<a name="tunnel.plural.set"></a>
+### `plural:set(index, data)` or `plural[i] = data` ###
+
+Set the data structure at `index` in `plural`.
+
+> Warning: if you set `plural` after it has been added to a block and the block is already executing a function, you will not see the changes to `plural` in these running functions.
+
+<a name="tunnel.counters"></a>
+### `counters = tunnel.Counters(size, ...)` ###
+
+Shortcut for `counters = tunnel.Plural(size, tunnel.Counter, ...)`.
+
+<a name="tunnel.hashes"></a>
+### `hashes = tunnel.Hashes(size, ...)` ###
+
+Shortcut for `hashes = tunnel.Plural(size, tunnel.Hash, ...)`.
+
+<a name="tunnel.vectors"></a>
+### `vectors = tunnel.Vectors(size, ...)` ###
+
+Shortcut for `vectors = tunnel.Plural(size, tunnel.Vectors, ...)`.
 
 <a name="tunnel.serializer"></a>
 ## `tunnel.Serializer` ##

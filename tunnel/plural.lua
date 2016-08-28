@@ -5,6 +5,10 @@ Copyright 2016 Xiang Zhang
 
 tunnel = tunnel or {}
 
+local Counter = require('tunnel.counter')
+local Hash = require('tunnel.hash')
+local Vector = require('tunnel.vector')
+
 -- Append an underscore to distinguish between metatable and class name
 local Plural_ = torch.class('tunnel.Plural')
 
@@ -22,7 +26,7 @@ end
 function Plural_:doAll(callback)
    local ret = {}
    for index, value in ipairs(self.data) do
-      ret[index] = callback(value)
+      ret[index] = callback(index, value)
    end
    return ret
 end
@@ -58,6 +62,26 @@ function Plural_:__newindex(index, value)
    else
       rawset(self, index, value)
    end
+end
+
+-- The length operator
+function Plural_:__len()
+   return #self.data
+end
+
+-- Shortcut for counter
+function tunnel.Counters(size, ...)
+   return tunnel.Plural(size, Counter, ...)
+end
+
+-- Shortcut for hash table
+function tunnel.Hashes(size, ...)
+   return tunnel.Plural(size, Hash, ...)
+end
+
+-- Shortcut for vector
+function tunnel.Vectors(size, ...)
+   return tunnel.Plural(size, Vector, ...)
 end
 
 return tunnel.Plural
