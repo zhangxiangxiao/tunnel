@@ -12,38 +12,67 @@ tunnel = tunnel or {}
 
 local Serializer_ = torch.class('tunnel.Serializer')
 
+Serializer_.state = nil
+local STATE = {WRITE = 1, READ = 2, RETAIN = 3}
+
 -- Serialize function
 function Serializer_:save(object)
-   self.swapWrite()
+   local state = self.setWrite()
    local f = torch.MemoryFile()
    f:binary()
    f:writeObject(object)
    local storage = f:storage()
    f:close()
-   self.swapWrite()
+   self.setState(state)
    return storage
 end
 
 -- Load function
 function Serializer_:load(storage)
-   self.swapRead()
+   local state = self.setRead()
    local f = torch.MemoryFile(storage)
    f:binary()
    local object = f:readObject()
    f:close()
-   self.swapRead()
+   self.setState(state)
    return object
 end
 
 -- Retrain-and-load function
 function Serializer_:retain(storage)
-   self.swapRetain()
+   local state = self.setRetain()
    local f = torch.MemoryFile(storage)
    f:binary()
    local object = f:readObject()
    f:close()
-   self.swapRetain()
+   self.setState(state)
    return object
+end
+
+function Serializer_.setWrite()
+   return Serializer_.setState(STATE.WRITE)
+end
+
+function Serializer_.setRead()
+   return Serializer_.setState(STATE.READ)
+end
+
+function Serializer_.setRetain()
+   return Serializer_.setState(STATE.RETAIN)
+end
+
+function Serializer_.setState(state)
+   local old_state = Serializer_.state
+   if Serializer_.state ~= state then
+      if Serializer_.state ~= nil then
+         Serializer_.swap[Serializer_.state]()
+      end
+      if state ~= nil then
+         Serializer_.swap[state]()
+      end
+      Serializer_.state = state
+   end
+   return old_state
 end
 
 function Serializer_.swapWrite()
@@ -89,6 +118,12 @@ function Serializer_.swapRetain()
       end
    end
 end
+
+-- Swap tables based on state
+Serializer_.swap = {}
+Serializer_.swap[STATE.WRITE] = Serializer_.swapWrite
+Serializer_.swap[STATE.READ] = Serializer_.swapRead
+Serializer_.swap[STATE.RETAIN] = Serializer_.swapRetain
 
 -- Serialize pointer function
 function Serializer_.savePointer(object, f)
